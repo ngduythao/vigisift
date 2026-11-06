@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.env
+evals/results/
+samples/*
+!samples/README.md
+# Frigate's runtime directory: DB, model cache, and the config.yml Frigate rewrites
+# when it receives camera rules. The template is deploy/frigate/config.template.yml.
+deploy/frigate/config/

@@ -1,0 +1,47 @@
+logLevel: info
+
+api: yes
+apiAddress: :9997
+
+rtsp: yes
+rtspAddress: :8554
+rtspTransports: [tcp]
+
+hls: yes
+hlsAddress: :8888
+hlsVariant: lowLatency
+
+webrtc: yes
+webrtcAddress: :8889
+webrtcLocalUDPAddress: :8189
+webrtcAdditionalHosts: [127.0.0.1]
+
+rtmp: no
+srt: no
+
+authInternalUsers:
+  - user: any
+    permissions:
+      - action: publish
+      - action: read
+      - action: playback
+  - user: vigisift
+    pass: vigisift
+    permissions:
+      - action: api
+
+paths:
+  # Fake camera for Frigate: deploy/mediamtx/fake-camera.sh loops
+  # samples/shop-aisle.mp4 (downloaded by scripts/fetch_samples.sh), with 60 quiet seconds.
+  shop-aisle:
+    runOnInit: sh /fake-camera.sh
+    runOnInitRestart: yes
+
+  # The eval set's camera: plays samples/eval-cam.mp4 (scripts/eval_alerts.py prepare).
+  eval-cam:
+    runOnInit: sh /fake-camera.sh
+    runOnInitRestart: yes
+
+  # Real cameras (or any source) publish in themselves, for example a webcam through FFmpeg:
+  # rtsp://127.0.0.1:8554/cam-2
+  all_others:

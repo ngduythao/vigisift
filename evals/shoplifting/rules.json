@@ -1,0 +1,18 @@
+{
+  "scene": "a table of products for sale in a small shop, seen from a fixed camera; customers pay at a counter elsewhere, so products must stay in their hands until then",
+  "normal": [
+    "A person picking up a product to look at it and putting it back on the table",
+    "A person standing at the table and browsing the products",
+    "A person walking past the table"
+  ],
+  "suspicious": [
+    "A person putting a product from the table into their own bag, backpack, pocket, or clothing, even calmly and even if the bag is theirs",
+    "A person hiding a product with their body, hands, or another object",
+    "A person looking around to check whether anyone is watching before handling a product"
+  ],
+  "critical": [
+    "Weapons visible",
+    "Physical aggression or violence"
+  ],
+  "concerns": []
+}

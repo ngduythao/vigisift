@@ -1,0 +1,50 @@
+# Frigate 0.18.2's review summary prompt, copied from frigate/genai/prompts.py
+# (build_review_description_prompt). Frigate: MIT, (c) Blake Blackshear.
+# Lines starting with `# ` at the top of the file are comments and aren't sent.
+Your task is to analyze a sequence of images taken in chronological order from a security camera.
+
+## Normal Activity Patterns for This Property
+
+{activity_context_prompt}
+
+## Task Instructions
+
+Describe the scene based on observable actions and movements, evaluate the activity against the Activity Indicators above, and assign a potential_threat_level (0, 1, or 2) by applying the threat level indicators consistently.
+
+## Analysis Guidelines
+
+When forming your description:
+- **Treat "Objects in Scene" as the list of tracked subjects to describe.** Do not introduce additional people or vehicles that are not present in this list. You may freely reference other items, surfaces, and environmental details visible in the frames when describing what the listed subjects are doing.
+- **Describe the most likely activity from visible cues across the sequence** — the subject's path, what they are carrying, and what they interact with. Avoid asserting completed outcomes you do not observe; describe in-progress actions rather than results.
+- Describe what you observe: actions, movements, interactions with objects and the environment. Include any observable environmental changes (e.g., lighting changes triggered by activity).
+- Note visible details such as clothing, items being carried or placed, tools or equipment present, and how they interact with the property or objects.
+- Consider the full sequence chronologically: what happens from start to finish, how duration and actions relate to the location and objects involved.
+- **Use the actual timestamp provided in "Activity started at"** below for time of day context—do not infer time from image brightness or darkness. Unusual hours (late night/early morning) should increase suspicion when the observable behavior itself appears questionable. However, recognize that some legitimate activities can occur at any hour.
+- **Consider duration as a primary factor**: Apply the duration thresholds defined in the activity patterns above. Brief sequences during normal hours with apparent purpose typically indicate normal activity unless explicit suspicious actions are visible.
+- **Weigh all evidence holistically**: Match the activity against the normal and suspicious patterns defined above, then evaluate based on the complete context (zone, objects, time, actions, duration). Apply the threat level indicators consistently. Use your judgment for edge cases.
+
+## Response Field Guidelines
+
+Respond with a JSON object matching the provided schema. Field-specific guidance:
+- `observations`: Include the very start of the activity — for example, a vehicle entering the frame or pulling into the driveway — even if it lasts only a few frames and the rest of the clip is dominated by a longer activity. Include each arrival, departure, object handled, and notable change in position or state. Each item is a single concrete fact written as a complete sentence.
+- `scene`: Describe how the sequence begins, then the progression of events — all significant movements and actions in order. For example, if a vehicle arrives and then a person exits, describe both sequentially. For named subjects (those with a `←` separator in "Objects in Scene"), always use their name — do not replace them with generic terms. For unnamed objects (e.g., "person", "car"), refer to them naturally with articles (e.g., "a person", "the car"). Your description should align with and support the threat level you assign.
+- `title`: Name the primary activity across the observations, together with the location. An activity is what is being done with objects, tools, or surfaces; locomotion through the scene qualifies as the activity only when no other interaction is observed. For named subjects, always use their name. For unnamed objects, refer to them naturally with articles.
+- `shortSummary`: Briefly summarize the primary activity across the observations.
+- `potential_threat_level`: Must be consistent with your scene description and the activity patterns above.
+{concerns}
+
+## Sequence Details
+
+- Camera: {camera}
+- Total frames: {frames} (Frame 1 = earliest, Frame {frames} = latest)
+- Activity started at {start} and lasted {duration} seconds
+- Zones involved: {zones}
+
+## Objects in Scene
+
+Each line represents a detection state, not necessarily unique individuals. The `←` symbol separates a recognized subject's name from their object type — use only the name (before the `←`) in your response, not the type after it. The same subject may appear across multiple lines if detected multiple times.
+
+**Note: Unidentified objects (without names) are NOT indicators of suspicious activity—they simply mean the system hasn't identified that object.**
+{objects}
+
+{language}

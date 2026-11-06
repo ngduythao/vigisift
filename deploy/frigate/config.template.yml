@@ -1,0 +1,207 @@
+# Frigate for the `demo` site (dev build, one fake camera). A real site uses this
+# same frame: change prefix/user/password following `scripts/register_site.py`,
+# turn TLS back on (or sit behind an HTTPS reverse proxy), and point `cameras` at real
+# cameras. Keys checked against docs/configuration/advanced/reference.md for 0.18.2.
+#
+# This is a template. `make frigate-config` copies it to config/config.yml (if
+# missing), and Frigate overwrites that file when VigiSift pushes camera rules
+# through the config API, so the running file isn't in git.
+
+# Frigate migrates config by this key. Without it, Frigate treats this as a 0.13
+# config, "upgrades" the 0.18-style genai block wrongly, and enters safe mode.
+version: 0.18-0
+
+mqtt:
+  enabled: true
+  host: mosquitto
+  port: 1883
+  # VigiSift reads the site from the topic; Mosquitto lets this user write only under this prefix.
+  topic_prefix: frigate/demo
+  client_id: frigate-demo
+  user: frigate-demo
+  password: "{FRIGATE_MQTT_PASSWORD}"
+  # The default is 0 (send once, lost is lost). Alerts must arrive.
+  qos: 1
+
+auth:
+  enabled: true
+
+tls:
+  # Dev: the UI at http://127.0.0.1:8971 is open only on localhost. A real site sets true.
+  enabled: false
+
+detectors:
+  # The default works right away with nothing extra, but uses the most CPU in the stack:
+  # ~99% of a core, at times 224% (eval, 1 camera at 5 fps; docs/03-eval.md run 5).
+  # Machines with Coral/Hailo/GPU change it here.
+  cpu:
+    type: cpu
+  # Mac: detect on the Neural Engine with YOLOv9 (README, "Person detector on
+  # a Mac"): sees people as well as CPU, total CPU down to ~43%. `make detector` runs the process outside Docker; replace the `cpu` block above
+  # with the block below, and uncomment the `model` block right after.
+  # apple-silicon:
+  #   type: zmq
+  #   endpoint: tcp://host.docker.internal:5555
+
+# model:
+#   model_type: yolo-generic
+#   width: 320
+#   height: 320
+#   input_tensor: nchw
+#   input_dtype: float
+#   path: /config/model_cache/yolov9-t-320.onnx
+#   labelmap_path: /labelmap/coco-80.txt
+
+genai:
+  # Ollama runs on the host to use the Mac's GPU; the container calls out through
+  # host.docker.internal. Pull the model first: `ollama pull qwen3-vl:8b-instruct` (6.2 GB).
+  # The 8B build caught 7/20 unseen theft clips, the 4B build 3/20, both with 0 false alarms
+  # (docs/03-eval.md run 10); a 24 GB machine can't hold a larger one.
+  # Use the instruct build: the `qwen3-vl:4b` tag points to the Thinking build, which always
+  # "thinks" for hundreds to over a thousand tokens even with `think: false`, and most requests hit
+  # the 120-second timeout (eval: 17/29 alerts had no summary, docs/03-eval.md).
+  #
+  # Two different num_ctx numbers, on purpose:
+  # - provider_options.options.num_ctx is ONLY for Frigate to compute the frame count:
+  #     min((num_ctx - 4100) / estimated_tokens_per_image, 24000 / ..., seconds)
+  #   Frigate estimates ~1 token per 1250 pixels of a 480-high frame, so the frame count
+  #   depends on the camera's aspect ratio: 6100 gives 8 frames on a 4:3 camera (246 tokens
+  #   per frame, like eval_cam) but 6 frames on 16:9 (328 tokens). For 8 frames on a 16:9
+  #   camera set 6800 (a 4:3 camera then gets 11 frames).
+  #   Why 8: on the 8B build, 8 frames catch 7/20 theft clips like 10 frames, but take
+  #   ~64 seconds per review instead of ~86 (docs/03-eval.md run 12). Frigate calls the VLM
+  #   with a HARD 120-second timeout and Ollama handles one review at a time: 10 frames keep
+  #   up with only ~35 alerts per hour; denser alerts queue and then time out.
+  # - runtime_options.options is what is actually sent to Ollama (Frigate merges
+  #   runtime_options over provider_options). qwen3-vl on Ollama uses ~1,050 tokens
+  #   per image at any resolution (measured); 8 frames (~8,400) + prompt ~4,000 +
+  #   ~1,000 returned tokens still fit in 16,384; 13 frames don't.
+  # The `ollama` provider sends `think: false`; through the OpenAI endpoint Ollama ignores
+  # that flag, and the model "thinks" before answering and passes the hard 120-second timeout.
+  local:
+    provider: ollama
+    base_url: http://host.docker.internal:11434
+    model: qwen3-vl:8b-instruct
+    roles:
+      - descriptions
+    provider_options:
+      # Release the model from memory after 10 minutes unused: the dev build runs on a daily-use
+      # machine and shouldn't hold 5.7 GB forever. The first call after that takes ~1 minute longer
+      # to reload. On a machine dedicated to the VLM, set -1 (keep forever).
+      keep_alive: 10m
+      options:
+        num_ctx: 6100
+    runtime_options:
+      # Frigate only sends `think: false` itself when it can ask Ollama whether the model
+      # has thinking, and it remembers the result of a FAILED ask too. This block is passed
+      # straight into the call, so set it directly to be sure.
+      think: false
+      options:
+        num_ctx: 16384
+        # Ceiling on generated tokens. A summary needs ~250–600 tokens; this stops
+        # a model rambling without end (measured once at 3,924 tokens), holding Ollama until
+        # the timeout and making other reviews queue. A model's "thinking" also counts
+        # here: on the Thinking build, 1024 produces an empty summary.
+        num_predict: 1024
+        # This `options` block fully replaces the default Frigate sets for local
+        # models, so it must be complete. Temperature 0 instead of Frigate's 0.5:
+        # the same scene gets the same description, not left to chance (docs/03-eval.md runs 7–8).
+        temperature: 0
+        repeat_penalty: 1.05
+        presence_penalty: 0.3
+
+record:
+  enabled: true
+  continuous:
+    days: 0
+  motion:
+    days: 1
+  alerts:
+    retain:
+      days: 7
+  detections:
+    retain:
+      days: 3
+
+objects:
+  track:
+    - person
+
+review:
+  alerts:
+    labels:
+      - person
+  genai:
+    enabled: true
+    alerts: true
+    detections: false
+    # 480p frames cut from recordings instead of ~180p previews: hands and objects are clearer,
+    # and with qwen3-vl on Ollama they cost the same tokens (Ollama resizes images itself).
+    image_source: recordings
+    # No preferred_language: summaries in English, one less demand on a small
+    # model. If you change the language, measure again with the eval (scripts/eval_grading.py).
+    # The "suspicious" rules for ONE store. Stage B will generate this from each site's
+    # profile in VigiSift rather than writing it by hand.
+    activity_context_prompt: |
+      This camera watches an aisle inside a retail store during opening hours.
+
+      ### Normal Activity Indicators (Level 0)
+      - Customers walking, browsing, or picking up items to look at them, then putting them back or into a basket or cart
+      - Staff restocking shelves, moving stock, or tidying displays
+      - People shopping together and talking
+
+      ### Suspicious Activity Indicators (Level 1)
+      - Putting merchandise into a pocket, bag, or under clothing instead of a basket or cart
+      - Removing packaging or security tags from merchandise
+      - Repeatedly looking around for staff or cameras while handling merchandise
+      - Staying in one spot handling merchandise for a long time without a clear purpose
+
+      ### Critical Threat Indicators (Level 2)
+      - Weapons visible
+      - Physical aggression or violence
+      - Damaging merchandise or property
+      - Grabbing large amounts of merchandise and running
+
+      ### Assessment Guidance
+      Judge only actions that are visible in the frames. Never infer intent from
+      appearance, clothing, age, or gender. If the frames do not clearly show where an
+      item went, do not assume it was concealed: use Level 0 and say what was unclear.
+
+cameras:
+  shop_aisle:
+    ffmpeg:
+      inputs:
+        - path: rtsp://mediamtx:8554/shop-aisle
+          roles:
+            - detect
+            - record
+    detect:
+      # Off by default in 0.18: without this there is no detection and no alerts.
+      enabled: true
+      width: 720
+      height: 404
+      fps: 5
+
+  # Camera for the eval set (scripts/eval_alerts.py): plays a video joined from labelled clips.
+  # Until the video is built it plays a test pattern, with no people and no alerts.
+  # Its "suspicious" rules are set from VigiSift (PUT /sites/demo/cameras/eval_cam/rules).
+  eval_cam:
+    ffmpeg:
+      inputs:
+        - path: rtsp://mediamtx:8554/eval-cam
+          roles:
+            - detect
+            - record
+    detect:
+      enabled: true
+      width: 640
+      height: 480
+      fps: 5
+    motion:
+      # Only for the eval camera. The eval video joins clips separated by a grey screen,
+      # so each clip opens with a full-frame change. By default (0.8) Frigate treats that
+      # as lightning/an IR switch, recalibrates the background and does NOT detect during it;
+      # afterwards a person standing still has become background. Measured on 12 dev clips: 3/12
+      # clips had no alert, reviews covered 35% of a clip; with 1.0 it's 0/12 and 87%.
+      # Real cameras run continuously and people walk into frame, so keep the default.
+      lightning_threshold: 1.0

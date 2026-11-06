@@ -1,0 +1,106 @@
+services:
+  postgres:
+    image: postgres:16.14-alpine
+    environment:
+      POSTGRES_DB: vigisift
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "127.0.0.1:5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d vigisift"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0.22
+    ports:
+      - "127.0.0.1:1883:1883"
+    volumes:
+      - ./deploy/mosquitto:/mosquitto/config:ro
+      - mosquitto-data:/mosquitto/data
+
+  mediamtx:
+    image: bluenviron/mediamtx:1.21.1-ffmpeg
+    ports:
+      - "127.0.0.1:8554:8554"
+      - "127.0.0.1:8888:8888"
+      - "127.0.0.1:8889:8889"
+      - "127.0.0.1:8189:8189/udp"
+      - "127.0.0.1:9997:9997"
+    volumes:
+      - ./deploy/mediamtx/mediamtx.yml:/mediamtx.yml:ro
+      - ./samples:/samples:ro
+      - ./deploy/mediamtx/fake-camera.sh:/fake-camera.sh:ro
+
+  # Valkey (BSD-3) instead of Redis: since 7.4 Redis moved to RSALv2/SSPL and is no longer
+  # open source. Valkey speaks the Redis protocol, so the `redis` client and `redis://` URL stay.
+  valkey:
+    image: valkey/valkey:9.1.2-alpine
+    ports:
+      - "127.0.0.1:6380:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # One Frigate site for dev. The signed-in UI is at http://127.0.0.1:8971; the admin
+  # password is printed in the first run's log: `docker compose logs frigate | grep -i password`.
+  # Port 5000 (unauthenticated API) is open only on the compose network, for VigiSift.
+  frigate:
+    image: ghcr.io/blakeblackshear/frigate:0.18.2
+    restart: unless-stopped
+    shm_size: "256mb"
+    stop_grace_period: 30s
+    depends_on:
+      mosquitto:
+        condition: service_started
+      mediamtx:
+        condition: service_started
+    environment:
+      FRIGATE_MQTT_PASSWORD: ${FRIGATE_MQTT_PASSWORD:-frigate-demo}
+      # Frigate writes the review's local time into the AI prompt, and the prompt is warier
+      # at night. Without a zone the container runs on UTC, so a morning alert in UTC+7
+      # reached the model as 2:30 AM. `make` passes the host's zone.
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ./deploy/frigate/config:/config
+      - frigate-media:/media/frigate
+      - type: tmpfs
+        target: /tmp/cache
+        tmpfs:
+          size: 1000000000
+    extra_hosts:
+      # Docker Desktop provides this name; Linux needs this line to call Ollama on the host.
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:8971:8971"
+
+  api:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/vigisift
+      MQTT_HOST: mosquitto
+      REDIS_URL: redis://valkey:6379/0
+      # Ollama runs on the host (the Mac's GPU), the same way Frigate calls it.
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
+      # Dev over http://127.0.0.1. For real use behind HTTPS, remove this line (the default is true)
+      # and set PUBLIC_ORIGIN and FORWARDED_ALLOW_IPS (see README).
+      SESSION_COOKIE_SECURE: "false"
+      ASSISTANT_ENABLED: ${ASSISTANT_ENABLED:-false}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    ports:
+      - "127.0.0.1:8000:8000"
+
+volumes:
+  mosquitto-data:
+  frigate-media:

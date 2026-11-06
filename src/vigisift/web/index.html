@@ -1,0 +1,1048 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VigiSift</title>
+<style>
+  @font-face { font-family: Inter; src: url("/fonts/inter-latin-wght-normal.woff2") format("woff2"); font-weight: 100 900; font-display: swap;
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+  @font-face { font-family: Inter; src: url("/fonts/inter-vietnamese-wght-normal.woff2") format("woff2"); font-weight: 100 900; font-display: swap;
+    unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB; }
+
+  :root {
+    color-scheme: light;
+    --bg: #fff; --bg-side: #fafafa; --bg-raised: #f5f5f5; --bg-selected: #ececec; --bg-sunken: #f5f5f5;
+    --text: #171717; --text-2: #404040; --text-3: #6b6b6b;
+    --line: #e5e5e5; --line-strong: #d4d4d4;
+    --suspicious: #a15c00; --critical: #b91c1c; --ok: #15803d;
+    --primary: #171717; --on-primary: #fff; --button: #ececec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --bg: #171717; --bg-side: #131313; --bg-raised: #1f1f1f; --bg-selected: #262626; --bg-sunken: #0f0f0f;
+      --text: #f8f8f8; --text-2: #d4d4d4; --text-3: #a4a4a4;
+      --line: #2e2e2e; --line-strong: #404040;
+      --suspicious: #e8b04a; --critical: #f87171; --ok: #4ade80;
+      --primary: #f8f8f8; --on-primary: #171717; --button: #2a2a2a;
+    }
+  }
+
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+  [hidden] { display: none !important; }
+  h1, h2, p, ul, dl, dd { margin: 0; padding: 0; }
+  ul { list-style: none; }
+  a { color: inherit; }
+  button, input { font: inherit; color: inherit; }
+  button { border: 0; border-radius: 8px; padding: 7px 12px; background: var(--button); cursor: pointer; }
+  button:hover:not(:disabled) { filter: brightness(1.15); }
+  button:disabled { opacity: .55; cursor: default; }
+  input { box-sizing: border-box; width: 100%; padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: transparent; }
+  input::placeholder { color: var(--text-3); }
+  :focus-visible { outline: 2px solid var(--text-3); outline-offset: 1px; }
+  .primary { background: var(--primary); color: var(--on-primary); font-weight: 500; }
+
+  .label { font-size: 11px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--text-3); }
+  .muted { color: var(--text-3); font-size: 12px; }
+  kbd { font: 11px/1 Inter, system-ui, sans-serif; color: var(--text-3); margin-left: 4px; }
+  .primary kbd { color: inherit; opacity: .7; }
+  .lvl1 { color: var(--suspicious); } .lvl2 { color: var(--critical); font-weight: 600; }
+  .icon { flex: none; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+  #login { width: min(320px, calc(100% - 32px)); margin: 96px auto 0; display: grid; gap: 10px; }
+  #login h1 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+  #login p { color: var(--critical); min-height: 1.5em; }
+
+  #app { height: 100%; display: grid; grid-template-columns: 220px minmax(0, 1fr); }
+  #app.collapsed { grid-template-columns: 56px minmax(0, 1fr); }
+  main { min-width: 0; min-height: 0; display: flex; }
+  .view { flex: 1; min-width: 0; overflow: auto; }
+
+  #sidebar { display: flex; flex-direction: column; gap: 16px; min-height: 0; padding: 10px; overflow-y: auto; background: var(--bg-side); border-right: 1px solid var(--line); }
+  .side-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 30px; padding-left: 8px; }
+  .side-top h1 { font-size: 15px; font-weight: 600; }
+  #home { text-decoration: none; }
+  .ghost { background: none; color: var(--text-3); padding: 6px; display: inline-flex; }
+  .ghost:hover:not(:disabled) { filter: none; background: var(--bg-selected); color: var(--text); }
+  #tabs { display: grid; gap: 2px; }
+  .nav-item, .site-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 8px; background: none; color: var(--text-3); text-align: left; }
+  .nav-item:hover:not(:disabled), .site-item:hover:not(:disabled) { filter: none; background: var(--bg-raised); color: var(--text); }
+  .nav-item[aria-current="page"], .site-item[aria-pressed="true"] { background: var(--bg-selected); color: var(--text); }
+  .nav-label { flex: 1; min-width: 0; }
+  .nav-count { color: var(--text-3); font-size: 12px; }
+  #sites { display: grid; gap: 2px; }
+  #sites .label { padding: 0 8px 6px; }
+  .site-item { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; display: block; }
+  .side-foot { margin-top: auto; display: grid; gap: 2px; padding-top: 10px; border-top: 1px solid var(--line); }
+  #live { display: flex; align-items: center; gap: 10px; padding: 5px 8px; }
+  #live .dot { margin: 0 5px; }
+  #live.on { color: var(--ok); }
+  #live.on .dot { background: var(--ok); }
+  #who { padding: 2px 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+  #app.collapsed #sidebar { padding: 10px 8px; align-items: stretch; }
+  #app.collapsed .side-top { justify-content: center; padding-left: 0; }
+  #app.collapsed .side-top h1, #app.collapsed .nav-label, #app.collapsed .nav-count, #app.collapsed #sites, #app.collapsed #who, #app.collapsed #live-text { display: none; }
+  #app.collapsed .nav-item { justify-content: center; padding: 8px 0; }
+  #app.collapsed #live { justify-content: center; padding: 5px 0; }
+  #app.collapsed #collapse .icon { transform: rotate(180deg); }
+
+  .split { display: grid; grid-template-columns: clamp(280px, 24vw, 360px) minmax(0, 1fr); overflow: hidden; }
+  .list-pane { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); }
+  .pane-label { flex: none; padding: 16px 14px 10px; }
+  .rows { flex: 1; overflow: auto; }
+  .rows li + li { border-top: 1px solid var(--line); }
+  .row { display: block; width: 100%; padding: 10px 14px; border-radius: 0; background: none; text-align: left; color: var(--text-2); }
+  .row:hover:not(:disabled) { filter: none; background: var(--bg-raised); }
+  .row[aria-current="true"] { background: var(--bg-selected); color: var(--text); }
+  .row[aria-current="true"] .row-title { font-weight: 500; }
+  .row-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .row-meta { display: block; margin-top: 3px; color: var(--text-3); font-size: 12px; }
+  .empty { padding: 14px; color: var(--text-3); }
+
+  .pages { display: flex; overflow: hidden; }
+  .pages.open .table-page, .pages:not(.open) .detail-pane { display: none; }
+  .table-page { flex: 1; min-width: 0; overflow: auto; }
+  .table-page .pane-label { padding: 16px 20px 10px; }
+  .table-page table { min-width: 100%; }
+  .table-page th, .table-page td { padding: 9px 12px; }
+  .table-page th:first-child, .table-page td:first-child { padding-left: 20px; }
+  .table-page td { color: var(--text-2); white-space: nowrap; }
+  .table-page td:first-child { white-space: normal; min-width: 260px; }
+  .table-page tbody tr { cursor: pointer; }
+  .table-page tbody tr:hover { background: var(--bg-raised); }
+  .table-page tbody tr[aria-current="true"] { background: var(--bg-selected); }
+  .table-page tbody tr[aria-current="true"] td:first-child { color: var(--text); font-weight: 500; }
+  .row-open { padding: 0; border-radius: 0; background: none; color: inherit; font-weight: inherit; text-align: left; }
+  .row-open:hover:not(:disabled) { filter: none; }
+
+  /* The pane's own width decides, because the sidebar and queue take different amounts. */
+  .detail-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; container-type: inline-size; }
+  .detail-body { flex: 1; overflow: auto; padding: 16px 20px; }
+  .back { display: none; margin-bottom: 10px; padding: 4px 10px; }
+  .pages .back { display: inline-block; }
+  .detail-title { margin: 4px 0 14px; font-size: 18px; font-weight: 500; line-height: 1.3; }
+  /* Narrow panes stack: clip, summary, details, with the verdict bar pinned to the bottom.
+     Wide panes put what a verdict needs (clip, summary, verdict bar) in the left column and
+     the reference details on the right. */
+  .detail-grid { display: grid; gap: 16px; }
+  .detail-main { display: contents; }
+  .detail-main > .fact { margin-bottom: 0; }
+  .clip { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; box-sizing: border-box; width: 100%; aspect-ratio: 16 / 9; max-height: 320px; overflow: hidden; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-sunken); color: var(--text-2); text-align: center; }
+  .clip video { display: block; width: 100%; height: 100%; object-fit: contain; background: #000; }
+  .clip p { padding: 0 16px; }
+  .clip-link { display: inline-block; margin-top: 8px; color: var(--text-3); font-size: 12px; }
+  .clip-link:hover { color: var(--text); }
+  @container (min-width: 760px) {
+    .detail-grid { grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr); gap: 24px; align-items: start; }
+    .detail-main { display: flex; flex-direction: column; gap: 16px; }
+    /* Short enough that the verdict bar under it stays on screen. */
+    .clip { max-height: 50vh; }
+    .detail-main .decide { order: 0; position: static; margin: 0; padding: 14px 0 0; background: none; }
+  }
+  .fact { margin-bottom: 14px; }
+  .fact:last-child { margin-bottom: 0; }
+  .fact .label { display: block; margin-bottom: 4px; }
+  .fact > :not(.label) { color: var(--text-2); }
+  .fact ul { list-style: disc; padding-left: 18px; }
+  .fact li.more { display: none; }
+  .fact.expanded li.more { display: list-item; }
+  .show-more { margin-top: 6px; padding: 3px 10px; font-size: 12px; }
+  /* The body's bottom padding would show through under a bar pinned at 0. */
+  .decide { order: 5; position: sticky; bottom: -16px; margin: 0 -20px -16px; padding: 12px 20px; border-top: 1px solid var(--line); background: var(--bg); }
+  .verdicts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
+  .decide-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin-top: 8px; }
+  .decide-error { color: var(--critical); font-size: 12px; }
+
+  .page { padding: 20px; max-width: 980px; display: grid; gap: 24px; }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { padding: 7px 8px 7px 0; border-top: 1px solid var(--line); text-align: left; }
+  th { border-top: 0; color: var(--text-3); font-size: 12px; font-weight: 500; white-space: nowrap; }
+  .dot { display: inline-block; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); }
+  .dot.on { background: var(--ok); }
+  td button { padding: 3px 10px; margin-right: 4px; }
+  .label + table, .label + ul { margin-top: 8px; }
+  #events li { padding: 4px 0; border-top: 1px solid var(--line); font-size: 12px; color: var(--text-2); overflow-wrap: anywhere; }
+  #chat { display: flex; gap: 8px; margin-top: 8px; }
+  #chat input { flex: 1; min-width: 0; }
+  #answer { white-space: pre-wrap; margin-top: 12px; color: var(--text-2); }
+  #confirmations button { margin-top: 8px; }
+
+  #toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); padding: 8px 14px; border-radius: 8px; background: var(--primary); color: var(--on-primary); font-size: 13px; max-width: calc(100% - 32px); }
+  dialog { border: 1px solid var(--line-strong); border-radius: 12px; background: var(--bg); color: var(--text); padding: 20px; width: min(340px, calc(100% - 32px)); box-sizing: border-box; }
+  dialog::backdrop { background: rgb(0 0 0 / .5); }
+  dialog dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 12px 0 16px; }
+  dialog dt { color: var(--text-3); }
+
+  /* Phones: the sidebar becomes a bar on top, and one pane shows at a time. */
+  @media (max-width: 760px) {
+    #app, #app.collapsed { display: flex; flex-direction: column; }
+    main { flex: 1; }
+    #sidebar, #app.collapsed #sidebar { flex: none; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 8px 12px; overflow: visible; border-right: 0; border-bottom: 1px solid var(--line); }
+    .side-top { flex: 1; padding-left: 0; justify-content: flex-start; }
+    #collapse, #who, .hide-small, kbd, .nav-item .icon, .nav-count, #sites .label { display: none; }
+    #app.collapsed .side-top h1, #app.collapsed .nav-label, #app.collapsed #live-text { display: inline; }
+    .side-foot { order: 1; margin: 0; padding: 0; border: 0; display: flex; align-items: center; gap: 4px; }
+    #live { padding: 0 4px; gap: 4px; }
+    #live .dot { display: none; }
+    #tabs, #sites, #app.collapsed #sites { order: 2; flex-basis: 100%; display: flex; gap: 4px; padding: 2px; overflow-x: auto; scrollbar-width: none; }
+    .nav-item, #app.collapsed .nav-item { width: auto; padding: 4px 8px; white-space: nowrap; }
+    .site-item { width: auto; padding: 3px 8px; font-size: 12px; overflow: visible; }
+    .split { grid-template-columns: minmax(0, 1fr); }
+    .list-pane { border-right: 0; }
+    .split.open .list-pane, .split:not(.open) .detail-pane { display: none; }
+    .back { display: inline-block; }
+    .detail-body, .decide { padding-left: 16px; padding-right: 16px; }
+    .decide { margin-left: -16px; margin-right: -16px; }
+    .page { padding: 16px; }
+    .metrics-wrap { overflow-x: auto; }
+    /* A six-column table can't fit, so each row stacks: the title, then one line of details. */
+    .table-page .pane-label { padding: 16px 16px 10px; }
+    .table-page thead { display: none; }
+    .table-page table, .table-page tbody { display: block; min-width: 0; }
+    .table-page tbody tr { display: flex; flex-wrap: wrap; gap: 2px 8px; padding: 10px 16px; border-top: 1px solid var(--line); }
+    .table-page td, .table-page td:first-child { padding: 0; border: 0; min-width: 0; font-size: 12px; color: var(--text-3); }
+    .table-page td:first-child { flex-basis: 100%; font-size: 14px; color: var(--text-2); }
+    .table-page td.no-verdict { display: none; }
+  }
+</style>
+</head>
+<body>
+<form id="login" hidden>
+  <h1>VigiSift</h1>
+  <h2 class="label">Operator sign-in</h2>
+  <input name="username" placeholder="Username" autocomplete="username" required>
+  <input name="password" type="password" placeholder="Password" autocomplete="current-password" required>
+  <button class="primary">Sign in</button>
+  <p id="login-error" role="alert"></p>
+</form>
+
+<div id="app" hidden>
+  <aside id="sidebar">
+    <div class="side-top">
+      <h1><a id="home" href="#review" title="Back to Review">VigiSift</a></h1>
+      <button id="collapse" class="ghost" aria-expanded="true" aria-label="Collapse sidebar" title="Collapse sidebar ([)">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
+    </div>
+    <nav id="tabs" aria-label="Sections">
+      <button class="nav-item" data-tab="review" aria-label="Review" title="Review">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h4l2 3h4l2-3h4M4 13l2.5-8h11L20 13v6H4z"/></svg>
+        <span class="nav-label">Review</span><span class="nav-count" id="nav-review-count"></span>
+      </button>
+      <button class="nav-item" data-tab="history" aria-label="History" title="History">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg>
+        <span class="nav-label">History</span>
+      </button>
+      <button class="nav-item" data-tab="metrics" aria-label="Metrics" title="Metrics">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>
+        <span class="nav-label">Metrics</span>
+      </button>
+      <button class="nav-item" data-tab="assistant" aria-label="Assistant" title="Assistant">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>
+        <span class="nav-label">Assistant</span>
+      </button>
+      <button class="nav-item" data-tab="system" aria-label="System" title="System">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+        <span class="nav-label">System</span>
+      </button>
+    </nav>
+    <section id="sites" aria-label="Filter by site"></section>
+    <div class="side-foot">
+      <div id="live" class="muted" title="Connection"><span class="dot"></span><span id="live-text"></span></div>
+      <div id="who" class="muted"></div>
+      <button id="logout" class="nav-item" aria-label="Log out" title="Log out">
+        <svg class="icon hide-small" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5H5v14h5M14 8l4 4-4 4M18 12H9"/></svg>
+        <span class="nav-label">Log out</span>
+      </button>
+    </div>
+  </aside>
+
+  <main>
+    <div class="view split paired" data-view="review">
+      <div class="list-pane">
+        <h2 class="label pane-label">Queue <span id="queue-count"></span></h2>
+        <ul class="rows" id="queue"></ul>
+      </div>
+      <div class="detail-pane" id="queue-detail"></div>
+    </div>
+
+    <div class="view pages paired" data-view="history" hidden>
+      <div class="table-page">
+        <h2 class="label pane-label">History, last 7 days</h2>
+        <table>
+          <thead><tr><th>Alert</th><th>Level</th><th class="hide-small">Site</th><th class="hide-small">Camera</th><th>Time</th><th>Verdict</th></tr></thead>
+          <tbody id="history"></tbody>
+        </table>
+      </div>
+      <div class="detail-pane" id="history-detail"></div>
+    </div>
+
+    <div class="view" data-view="metrics" hidden>
+      <div class="page">
+        <section class="metrics-wrap">
+          <h2 class="label">AI vs operators, last 7 days</h2>
+          <table id="metrics"></table>
+        </section>
+      </div>
+    </div>
+
+    <div class="view" data-view="system" hidden>
+      <div class="page">
+        <section>
+          <h2 class="label">Live events</h2>
+          <ul id="events"></ul>
+          <p id="events-empty" class="muted">Events appear here as they arrive.</p>
+        </section>
+        <section>
+          <h2 class="label">Devices</h2>
+          <table id="devices"></table>
+        </section>
+      </div>
+    </div>
+
+    <div class="view" data-view="assistant" hidden>
+      <div class="page">
+        <section>
+          <h2 class="label">Assistant</h2>
+          <form id="chat"><input name="q" placeholder="Anything suspicious at the demo store today?" autocomplete="off"><button>Ask</button></form>
+          <p id="answer"></p><div id="confirmations"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="toast" role="status" hidden></div>
+
+<dialog id="help">
+  <h2 class="label">Keyboard shortcuts</h2>
+  <dl>
+    <dt>J or ↓</dt><dd>Next alert</dd>
+    <dt>K or ↑</dt><dd>Previous alert</dd>
+    <dt>Enter</dt><dd>Open the alert in History</dd>
+    <dt>Esc</dt><dd>Back to the History table</dd>
+    <dt>Space</dt><dd>Play or pause the clip</dd>
+    <dt>O</dt><dd>Open in Frigate</dd>
+    <dt>1</dt><dd>Mark suspicious</dd>
+    <dt>2</dt><dd>Mark normal</dd>
+    <dt>3</dt><dd>Mark unclear</dd>
+    <dt>N</dt><dd>Add a note</dd>
+    <dt>[</dt><dd>Collapse or expand the sidebar</dd>
+    <dt>?</dt><dd>Show this list</dd>
+  </dl>
+  <form method="dialog"><button>Close</button></form>
+</dialog>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const text = (tag, value) => Object.assign(document.createElement(tag), { textContent: value ?? "" });
+const LEVELS = { 0: "Normal", 1: "Suspicious", 2: "Critical" };
+const VERDICTS = [["suspicious", "Suspicious", "1"], ["normal", "Normal", "2"], ["unclear", "Unclear", "3"]];
+const TABS = ["review", "history", "metrics", "system", "assistant"];
+const PAGE_SIZE = 50;
+const SIDEBAR_KEY = "vigisift.sidebar";
+const SITE_KEY = "vigisift.site";
+const alertKey = (a) => `${a.site_id}/${a.review_id}`;
+
+// The API sends one page, so a full page means there may be more behind it.
+let queueTruncated = false;
+let sites = [];
+
+// Conveniences for this browser only: pages must still work when storage is blocked.
+function remembered(key) {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+
+function remember(key, value) {
+  try {
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+  } catch { /* not worth failing the page over */ }
+}
+
+let currentSite = remembered(SITE_KEY);
+
+// The two alert lists share selection and detail rendering. The note is kept per
+// alert so a live refresh or moving away and back doesn't lose what was typed.
+const lists = {
+  review: { items: new Map(), selected: null, rendered: null, loads: 0, rows: $("queue"), detail: $("queue-detail"), empty: "Nothing to review." },
+  history: { items: new Map(), selected: null, rendered: null, loads: 0, rows: $("history"), detail: $("history-detail"), empty: "No alerts in the last 7 days." },
+};
+const notes = new Map();
+
+// Every API call goes through here: an expired session (401) returns to sign-in.
+async function api(path, options = {}) {
+  const response = await fetch(path, {
+    ...options,
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+  });
+  if (response.status === 401) { showLogin(); throw new Error("not_authenticated"); }
+  return response;
+}
+
+function showLogin() {
+  $("app").hidden = true; $("who").textContent = "";
+  $("login").hidden = false;
+}
+
+async function start() {
+  const response = await fetch("/auth/me");
+  if (!response.ok) { showLogin(); return; }
+  const me = await response.json();
+  $("who").textContent = `${me.display_name} (${me.role})`;
+  $("login").hidden = true; $("app").hidden = false;
+  showTab();
+  await loadSites();
+  await Promise.allSettled([loadQueue(), loadHistory(), loadMetrics(), loadDevices()]);
+  connectEvents();
+}
+
+$("login").onsubmit = async (event) => {
+  event.preventDefault();
+  const form = event.target;
+  const response = await fetch("/auth/login", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: form.username.value.trim().toLowerCase(), password: form.password.value }),
+  });
+  form.password.value = "";
+  if (response.status === 204) { $("login-error").textContent = ""; start(); return; }
+  $("login-error").textContent = response.status === 429
+    ? "Too many failed attempts. Try again later."
+    : "Wrong username or password.";
+};
+
+$("logout").onclick = async () => {
+  await fetch("/auth/logout", { method: "POST" });
+  if (socket) { socket.onclose = null; socket.close(); }
+  $("login").reset();
+  showLogin();
+};
+
+// Wide screens start open and laptops start with icons only, until the operator chooses.
+function setSidebar(collapsed, save) {
+  $("app").classList.toggle("collapsed", collapsed);
+  const action = collapsed ? "Expand sidebar" : "Collapse sidebar";
+  $("collapse").setAttribute("aria-expanded", String(!collapsed));
+  $("collapse").setAttribute("aria-label", action);
+  $("collapse").title = `${action} ([)`;
+  if (save) remember(SIDEBAR_KEY, collapsed ? "collapsed" : "open");
+}
+
+const toggleSidebar = () => setSidebar(!$("app").classList.contains("collapsed"), true);
+$("collapse").onclick = toggleSidebar;
+const savedSidebar = remembered(SIDEBAR_KEY);
+setSidebar(savedSidebar ? savedSidebar === "collapsed" : innerWidth < 1400, false);
+
+// The tab lives in the URL so a reload stays where the operator was.
+function currentTab() {
+  const tab = location.hash.slice(1);
+  return TABS.includes(tab) ? tab : "review";
+}
+
+function showTab() {
+  const tab = currentTab();
+  document.querySelectorAll("[data-view]").forEach((view) => { view.hidden = view.dataset.view !== tab; });
+  document.querySelectorAll("[data-tab]").forEach((button) => {
+    if (button.dataset.tab === tab) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  });
+}
+
+$("tabs").onclick = (event) => {
+  const tab = event.target.closest("[data-tab]")?.dataset.tab;
+  if (!tab) return;
+  // History always lands on its table, even when an alert was open.
+  if (tab === "history") closeHistoryAlert();
+  location.hash = tab;
+};
+window.addEventListener("hashchange", showTab);
+
+// The name in the corner always returns to the start: the queue, with no alert held open.
+$("home").onclick = () => {
+  closeHistoryAlert();
+  document.querySelector("[data-view=review]").classList.remove("open");
+};
+
+const historyPage = () => document.querySelector("[data-view=history]");
+const historyAlertOpen = () => historyPage().classList.contains("open");
+
+
+function closeHistoryAlert() {
+  historyPage().classList.remove("open");
+  stopClip(lists.history.detail);
+  lists.history.detail.replaceChildren();
+  lists.history.rendered = lists.history.renderedKey = null;
+}
+
+function openHistoryAlert(key) {
+  historyPage().classList.add("open");
+  select("history", key);
+}
+
+function siteButton(id, label) {
+  const button = text("button", label);
+  button.className = "site-item";
+  button.title = label;
+  button.setAttribute("aria-pressed", String(currentSite === id));
+  button.onclick = () => chooseSite(id);
+  return button;
+}
+
+function renderSites() {
+  const heading = text("h2", "Sites"); heading.className = "label";
+  $("sites").replaceChildren(heading, siteButton(null, "All sites"), ...sites.map((s) => siteButton(s.id, s.name)));
+}
+
+async function loadSites() {
+  const response = await api("/sites");
+  if (!response.ok) return;
+  sites = await response.json();
+  // A saved site that's gone must not leave the operator on an empty queue.
+  if (currentSite !== null && !sites.some((s) => s.id === currentSite)) chooseSite(null, false);
+  renderSites();
+}
+
+function chooseSite(id, reload = true) {
+  currentSite = id;
+  remember(SITE_KEY, id);
+  renderSites();
+  if (!reload) return;
+  closeHistoryAlert();
+  loadQueue().catch(() => {});
+  loadHistory().catch(() => {});
+}
+
+const siteParam = () => (currentSite === null ? "" : `&site_id=${encodeURIComponent(currentSite)}`);
+
+const when = (iso, options) => new Date(iso).toLocaleString("en-US", options);
+const FULL_TIME = { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" };
+
+function shortTime(iso) {
+  const sameDay = new Date(iso).toDateString() === new Date().toDateString();
+  return when(iso, sameDay ? { hour: "numeric", minute: "2-digit" } : FULL_TIME);
+}
+
+// Effective level: the higher of Frigate's level and VigiSift's rule re-check, computed
+// by the database. null until the alert has a summary.
+const levelOf = (a) => a.level ?? null;
+
+function levelLabel(a) {
+  const level = levelOf(a);
+  const node = text("span", level === null ? "Awaiting summary" : LEVELS[level]);
+  if (level) node.className = `lvl${level}`;
+  return node;
+}
+
+const titleOf = (a) => a.title || `${a.severity}: ${a.objects.join(", ")}`;
+const capitalised = (word) => word.charAt(0).toUpperCase() + word.slice(1);
+
+function queueRow(a) {
+  const button = document.createElement("button");
+  button.className = "row";
+  button.dataset.key = alertKey(a);
+  const meta = text("span", ""); meta.className = "row-meta";
+  // The site only matters when alerts from several sites share the list.
+  const where = currentSite === null && sites.length > 1 ? `${a.site_id} · ${a.camera}` : a.camera;
+  meta.append(levelLabel(a), ` · ${where} · ${shortTime(a.started_at)}`);
+  const title = text("span", titleOf(a)); title.className = "row-title";
+  button.append(title, meta);
+  button.onclick = () => { select("review", alertKey(a)); button.closest(".paired").classList.add("open"); };
+  const item = document.createElement("li");
+  item.append(button);
+  return item;
+}
+
+function historyRow(a) {
+  const key = alertKey(a);
+  const row = document.createElement("tr");
+  row.dataset.key = key;
+  row.onclick = () => openHistoryAlert(key);
+  const first = document.createElement("td");
+  const open = text("button", titleOf(a)); open.className = "row-open";
+  first.append(open);
+  const level = document.createElement("td"); level.append(levelLabel(a));
+  const site = text("td", a.site_id); site.className = "hide-small";
+  const camera = text("td", a.camera); camera.className = "hide-small";
+  const verdict = text("td", a.verdict ? capitalised(a.verdict) : "–");
+  if (!a.verdict) verdict.className = "no-verdict";
+  row.append(first, level, site, camera, text("td", when(a.started_at, FULL_TIME)), verdict);
+  return row;
+}
+
+function renderRows(name) {
+  const list = lists[name];
+  const alerts = [...list.items.values()];
+  if (name === "review") {
+    const empty = text("li", list.empty); empty.className = "empty";
+    list.rows.replaceChildren(...(alerts.length ? alerts.map(queueRow) : [empty]));
+  } else {
+    const cell = text("td", list.empty); cell.colSpan = 6;
+    const empty = document.createElement("tr"); empty.append(cell);
+    list.rows.replaceChildren(...(alerts.length ? alerts.map(historyRow) : [empty]));
+  }
+  markSelected(name, false);
+}
+
+// Only moving the selection scrolls: a live refresh must not pull the list back
+// to the selected alert while the operator is reading further down.
+function markSelected(name, scroll) {
+  const list = lists[name];
+  for (const row of list.rows.querySelectorAll("[data-key]")) {
+    if (row.dataset.key === list.selected) {
+      row.setAttribute("aria-current", "true");
+      if (scroll) row.scrollIntoView({ block: "nearest" });
+    } else row.removeAttribute("aria-current");
+  }
+}
+
+function select(name, key) {
+  lists[name].selected = key;
+  markSelected(name, true);
+  renderDetail(name);
+}
+
+// After a reload or a removal, stay on the same alert if it's still there;
+// otherwise take the one now at the same position, so the detail is never blank.
+function keepSelection(name, previousKeys) {
+  const list = lists[name];
+  if (list.items.has(list.selected)) return;
+  const keys = [...list.items.keys()];
+  const index = Math.max(previousKeys.indexOf(list.selected), 0);
+  list.selected = keys[Math.min(index, keys.length - 1)] ?? null;
+}
+
+function move(name, delta) {
+  const list = lists[name];
+  const keys = [...list.items.keys()];
+  if (!keys.length) return;
+  const index = keys.indexOf(list.selected);
+  select(name, keys[Math.min(Math.max(index + delta, 0), keys.length - 1)]);
+}
+
+function fact(label, content) {
+  const node = document.createElement("div"); node.className = "fact";
+  const heading = text("span", label); heading.className = "label";
+  node.append(heading, content);
+  return node;
+}
+
+function bullets(values) {
+  const list = document.createElement("ul");
+  list.append(...values.map((value) => text("li", value)));
+  return list;
+}
+
+// A long list shows its first few items, so the details beside the clip stay short.
+const FIRST_ITEMS = 3;
+function shortList(label, values) {
+  const node = fact(label, bullets(values));
+  if (values.length <= FIRST_ITEMS) return node;
+  [...node.querySelectorAll("li")].slice(FIRST_ITEMS).forEach((item) => item.classList.add("more"));
+  const toggle = text("button", `Show all ${values.length}`); toggle.className = "show-more";
+  toggle.setAttribute("aria-expanded", "false");
+  toggle.onclick = () => {
+    const expanded = node.classList.toggle("expanded");
+    toggle.textContent = expanded ? "Show fewer" : `Show all ${values.length}`;
+    toggle.setAttribute("aria-expanded", String(expanded));
+  };
+  node.append(toggle);
+  return node;
+}
+
+const CLIP_MESSAGES = {
+  404: "This clip is no longer available. Frigate has no recording for it.",
+  503: "Can't reach this site's Frigate right now.",
+};
+
+function clipColumn(a) {
+  const src = `/alerts/${encodeURIComponent(a.site_id)}/${encodeURIComponent(a.review_id)}/clip`;
+  const column = document.createElement("div"); column.className = "clip-column";
+  const box = document.createElement("div"); box.className = "clip";
+  let controller, timer, objectUrl;
+
+  const show = (message, retry) => {
+    const again = text("button", "Try again");
+    again.onclick = load;
+    box.replaceChildren(text("p", message), ...(retry ? [again] : []));
+  };
+
+  async function load() {
+    controller = new AbortController();
+    const { signal } = controller;
+    box.replaceChildren(text("p", "Loading clip…"));
+    try {
+      const response = await api(src, { signal });
+      if (!response.ok) { show(CLIP_MESSAGES[response.status] ?? "Couldn't load this clip.", response.status !== 404); return; }
+      // Frigate streams a clip with no length or byte ranges, so a player reading it directly
+      // can't seek. The whole file in memory can, and operators need to scrub back and forth.
+      const blob = await response.blob();
+      if (signal.aborted) return;
+      objectUrl = URL.createObjectURL(blob);
+      const video = Object.assign(document.createElement("video"), { controls: true, playsInline: true, src: objectUrl });
+      video.setAttribute("aria-label", `Clip: ${titleOf(a)}`);
+      video.onerror = () => show("This clip can't be played in this browser.", false);
+      box.replaceChildren(video);
+    } catch (error) {
+      if (error.name !== "AbortError" && error.message !== "not_authenticated") show("Couldn't load this clip.", true);
+    }
+  }
+
+  // Wait a moment so holding J or K doesn't ask Frigate for every alert passed on the way.
+  timer = setTimeout(load, 200);
+  // Called when the alert leaves the screen, to stop the download and free the video's memory.
+  column.stop = () => {
+    clearTimeout(timer);
+    controller?.abort();
+    box.querySelector("video")?.pause();
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+  };
+  column.append(box);
+  // The server builds the link from a ui_url it checked is http(s); check again before using it.
+  if (/^https?:\/\//.test(a.link)) {
+    const link = text("a", "Open in Frigate");
+    link.className = "clip-link"; link.href = a.link; link.target = "_blank"; link.rel = "noopener noreferrer";
+    column.append(link);
+  }
+  return column;
+}
+
+const stopClip = (container) => container.querySelector(".clip-column")?.stop();
+
+// What a verdict needs, shown under the clip.
+function summary(a) {
+  const nodes = [fact("AI summary", text("p", a.summary || "Waiting for the AI summary. You can still judge the clip."))];
+  if (a.rule_level > 0 && a.rule_match) nodes.push(fact("Matches camera rule", text("p", a.rule_match)));
+  return nodes;
+}
+
+// The rest, for looking things up.
+function facts(a) {
+  const column = document.createElement("div");
+  if (a.scene) column.append(fact("Scene", text("p", a.scene)));
+  if (a.observations?.length) column.append(shortList("Observations", a.observations));
+  if (a.other_concerns?.length) column.append(shortList("Other concerns", a.other_concerns));
+  const seen = [...a.objects, ...a.zones].join(", ");
+  if (seen) column.append(fact("Detected", text("p", seen)));
+  if (a.confidence !== null && a.confidence !== undefined) column.append(fact("AI confidence", text("p", `${Math.round(a.confidence * 100)}%`)));
+  return column;
+}
+
+function detailBody(name, a, keptClip, bar) {
+  const body = document.createElement("div"); body.className = "detail-body";
+  const back = text("button", name === "history" ? "Back to history" : "Back to list"); back.className = "back";
+  back.onclick = () => (name === "history" ? closeHistoryAlert() : back.closest(".paired").classList.remove("open"));
+  const meta = text("div", ""); meta.className = "muted";
+  meta.append(levelLabel(a), ` · ${a.site_id} · ${a.camera} · ${when(a.started_at, FULL_TIME)}${a.times_approximate ? " (approx.)" : ""}`);
+  const title = text("h2", titleOf(a)); title.className = "detail-title";
+  const grid = document.createElement("div"); grid.className = "detail-grid";
+  const main = document.createElement("div"); main.className = "detail-main";
+  main.append(keptClip ?? clipColumn(a), ...summary(a), bar);
+  grid.append(main, facts(a));
+  body.append(back, meta, title, grid);
+  return body;
+}
+
+function decideBar(name, a) {
+  const key = alertKey(a);
+  const bar = document.createElement("div"); bar.className = "decide";
+  const buttons = document.createElement("div"); buttons.className = "verdicts";
+  for (const [verdict, label, shortcut] of VERDICTS) {
+    const button = text("button", label);
+    button.dataset.verdict = verdict;
+    if (verdict === "suspicious") button.className = "primary";
+    button.append(text("kbd", shortcut));
+    button.onclick = () => decide(name, a, verdict);
+    buttons.append(button);
+  }
+  const note = Object.assign(document.createElement("input"), { placeholder: "Add a note (optional)", maxLength: 500, value: notes.get(key) ?? "" });
+  note.className = "note";
+  note.oninput = () => notes.set(key, note.value);
+  note.onkeydown = (event) => { if (event.key === "Escape") { event.stopPropagation(); note.blur(); } };
+  const foot = document.createElement("div"); foot.className = "decide-foot";
+  const status = a.verdict
+    ? text("span", `Judged ${a.verdict} by ${a.verdict_by}. Pick again to change it.`)
+    : text("span", "");
+  status.className = "muted";
+  const error = text("span", ""); error.className = "decide-error"; error.setAttribute("role", "alert");
+  const hint = text("span", "Space play · J K move · ? all shortcuts"); hint.className = "muted hide-small";
+  foot.append(status, error, hint);
+  bar.append(buttons, note, foot);
+  return bar;
+}
+
+function renderDetail(name) {
+  // History's detail stays hidden until an alert opens, and shouldn't fetch a clip before that.
+  if (name === "history" && !historyAlertOpen()) return;
+  const list = lists[name];
+  const a = list.items.get(list.selected);
+  const snapshot = a ? JSON.stringify(a) : null;
+  // A live refresh with nothing new must not reset the scroll position or the note's focus.
+  if (snapshot !== null && snapshot === list.rendered) return;
+  const note = list.detail.querySelector(".note");
+  if (a && note && note === document.activeElement && list.renderedKey === alertKey(a)) return;
+  // A summary arriving for the same alert must not restart the video being watched.
+  const keptClip = a && list.renderedKey === alertKey(a) ? list.detail.querySelector(".clip-column") : null;
+  if (!keptClip) stopClip(list.detail);
+  list.rendered = snapshot;
+  list.renderedKey = a ? alertKey(a) : null;
+  if (!a) {
+    const empty = text("div", name === "review" ? "All caught up. New alerts appear here." : "Pick an alert to see it here.");
+    empty.className = "empty";
+    list.detail.replaceChildren(empty);
+    list.detail.closest(".paired").classList.remove("open");
+    return;
+  }
+  list.detail.replaceChildren(detailBody(name, a, keptClip, decideBar(name, a)));
+}
+
+function showToast(message) {
+  $("toast").textContent = message; $("toast").hidden = false;
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(() => { $("toast").hidden = true; }, 3000);
+}
+
+let saving = false;
+
+async function decide(name, a, verdict) {
+  if (saving) return;
+  saving = true;
+  const list = lists[name];
+  const key = alertKey(a);
+  const buttons = list.detail.querySelectorAll(".verdicts button");
+  buttons.forEach((button) => (button.disabled = true));
+  const failed = () => {
+    buttons.forEach((button) => (button.disabled = false));
+    const error = list.detail.querySelector(".decide-error");
+    if (error) error.textContent = "Couldn't save the verdict. Try again.";
+  };
+  try {
+    const response = await api(`/alerts/${encodeURIComponent(a.site_id)}/${encodeURIComponent(a.review_id)}/verdict`, {
+      method: "PUT", body: JSON.stringify({ verdict, note: notes.get(key) || null }),
+    });
+    if (!response.ok) { failed(); return; }
+    notes.delete(key);
+    if (name === "review") {
+      showToast(`Marked ${verdict}. Change it in History if needed.`);
+      removeFromQueue(key);
+      if (queueTruncated) later("queue", loadQueue);
+    } else {
+      showToast(`Marked ${verdict}.`);
+      buttons.forEach((button) => (button.disabled = false));
+      later("queue", loadQueue);
+    }
+    later("history", loadHistory); later("metrics", loadMetrics);
+  } catch { failed(); } finally { saving = false; }
+}
+
+function renderQueueCount() {
+  const count = queueTruncated ? `${PAGE_SIZE}+` : String(lists.review.items.size);
+  $("queue-count").textContent = `· ${count}`;
+  $("nav-review-count").textContent = count;
+  document.querySelector("[data-tab=review]").title = `Review, ${count} waiting`;
+}
+
+function removeFromQueue(key) {
+  const list = lists.review;
+  if (!list.items.has(key)) return;
+  const keys = [...list.items.keys()];
+  list.items.delete(key);
+  keepSelection("review", keys);
+  renderRows("review"); renderDetail("review"); renderQueueCount();
+}
+
+async function loadInto(name, path) {
+  const list = lists[name];
+  const load = ++list.loads;
+  const response = await api(path);
+  if (!response.ok) return null;
+  const alerts = await response.json();
+  // Switching site quickly can return an older answer last; only the newest counts.
+  if (load !== list.loads) return null;
+  const keys = [...list.items.keys()];
+  list.items = new Map(alerts.map((a) => [alertKey(a), a]));
+  keepSelection(name, keys);
+  renderRows(name); renderDetail(name);
+  return alerts;
+}
+
+async function loadQueue() {
+  const alerts = await loadInto("review", `/queue?limit=${PAGE_SIZE}${siteParam()}`);
+  if (!alerts) return;
+  queueTruncated = alerts.length >= PAGE_SIZE;
+  renderQueueCount();
+}
+
+const loadHistory = () => loadInto("history", `/alerts?limit=${PAGE_SIZE}&since_minutes=${7 * 24 * 60}${siteParam()}`);
+
+async function loadMetrics() {
+  const response = await api("/review-metrics?days=7");
+  if (!response.ok) return;
+  const rows = await response.json();
+  const pct = (value) => (value === null ? "–" : `${Math.round(value * 100)}%`);
+  const head = document.createElement("tr");
+  for (const label of ["Site", "Alerts", "Reviewed", "AI precision", "AI recall", "False alarms/h"]) head.append(text("th", label));
+  $("metrics").replaceChildren(head, ...rows.map((m) => {
+    const row = document.createElement("tr");
+    for (const value of [m.site_id, m.alerts, m.reviewed, pct(m.precision), pct(m.recall), m.false_alarms_per_hour.toFixed(2)]) row.append(text("td", String(value)));
+    return row;
+  }));
+}
+
+async function loadDevices() {
+  const response = await api("/devices");
+  if (!response.ok) return;
+  const devices = await response.json();
+  $("devices").replaceChildren(...devices.map((d) => {
+    const row = document.createElement("tr");
+    const dot = text("span", ""); dot.className = "dot" + (d.online ? " on" : "");
+    const status = document.createElement("td"); status.append(dot);
+    const actions = document.createElement("td");
+    for (const action of ["ON", "OFF"]) {
+      const button = text("button", action);
+      button.onclick = () => command(d.id, action);
+      actions.append(button);
+    }
+    row.append(status, text("td", d.name), text("td", d.state), actions);
+    return row;
+  }));
+}
+
+async function command(deviceId, action) {
+  const response = await api(`/devices/${encodeURIComponent(deviceId)}/commands`, {
+    method: "POST", headers: { "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ action }),
+  });
+  log(response.ok ? `command ${action} → ${deviceId}` : `command refused: ${(await response.json()).detail}`);
+}
+
+function log(line) {
+  $("events-empty").hidden = true;
+  $("events").prepend(text("li", `${new Date().toLocaleTimeString("en-US")}  ${line}`));
+  while ($("events").children.length > 100) $("events").lastChild.remove();
+}
+
+// Turn a burst of events into one reload. A network error doesn't become an
+// unhandled promise rejection.
+const pending = {};
+function later(name, fn) {
+  clearTimeout(pending[name]);
+  pending[name] = setTimeout(() => fn().catch(() => {}), 1000);
+}
+
+function setLive(on) {
+  const state = on ? "Live" : "Reconnecting";
+  $("live-text").textContent = state;
+  $("live").title = state;
+  $("live").classList.toggle("on", on);
+}
+
+let socket;
+let retryMs = 1000;
+function connectEvents() {
+  socket = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/telemetry`);
+  socket.onopen = () => { retryMs = 1000; setLive(true); };
+  socket.onmessage = (message) => {
+    const event = JSON.parse(message.data);
+    if (event.type === "camera_alert") {
+      log(`alert ${event.site_id}/${event.camera}: ${event.title || event.severity}`);
+      later("queue", loadQueue); later("history", loadHistory); later("metrics", loadMetrics);
+    } else if (event.type === "alert_verdict") {
+      log(`${event.by} judged ${event.site_id}/${event.review_id} ${event.verdict}`);
+      removeFromQueue(`${event.site_id}/${event.review_id}`);
+      later("history", loadHistory); later("metrics", loadMetrics);
+    } else if (event.type === "presence") { log(`${event.device_id} is ${event.state}`); later("devices", loadDevices); }
+    else if (event.type === "command") { log(`command ${event.command_id.slice(0, 8)} ${event.status}`); later("devices", loadDevices); }
+    else { later("devices", loadDevices); }
+  };
+  // Reconnect on a lost connection, backing off to 30 seconds so a failing
+  // server isn't flooded. If the session expired, the next API call returns to sign-in.
+  socket.onclose = () => {
+    setLive(false);
+    setTimeout(() => {
+      if ($("app").hidden) return;
+      connectEvents();
+      later("queue", loadQueue);
+    }, retryMs);
+    retryMs = Math.min(retryMs * 2, 30000);
+  };
+}
+
+async function ask(question) {
+  $("answer").textContent = ""; $("confirmations").replaceChildren();
+  const response = await api("/assistant/chat", { method: "POST", body: JSON.stringify({ message: question }) });
+  if (!response.ok) { $("answer").textContent = `Assistant unavailable (${response.status}).`; return; }
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += value;
+    const chunks = buffer.split("\n\n"); buffer = chunks.pop();
+    for (const chunk of chunks) {
+      const [kindLine, dataLine] = chunk.split("\n");
+      const kind = kindLine.replace("event: ", ""), data = JSON.parse(dataLine.replace("data: ", ""));
+      if (kind === "text") $("answer").textContent += data.text;
+      if (kind === "error") $("answer").textContent += `\n[${data.message}]`;
+      if (kind === "confirmation") {
+        const button = text("button", `Confirm: ${data.summary}`);
+        button.onclick = async () => {
+          const result = await api(`/assistant/confirmations/${encodeURIComponent(data.id)}`, { method: "POST" });
+          button.disabled = true; button.textContent = result.ok ? "Sent" : "Expired";
+        };
+        $("confirmations").append(button);
+      }
+    }
+  }
+}
+
+$("chat").onsubmit = (event) => { event.preventDefault(); const q = event.target.q.value.trim(); if (q) ask(q); };
+
+document.addEventListener("keydown", (event) => {
+  if ($("app").hidden || event.metaKey || event.ctrlKey || event.altKey) return;
+  if (event.target.matches("input, textarea, select") || $("help").open) return;
+  if (event.key === "?") { event.preventDefault(); $("help").showModal(); return; }
+  if (event.key === "[") { event.preventDefault(); toggleSidebar(); return; }
+  const name = currentTab();
+  if (!(name in lists)) return;
+  const list = lists[name];
+  const a = list.items.get(list.selected);
+  // In History the verdict bar exists only once an alert is open.
+  const canDecide = name === "review" || historyAlertOpen();
+  switch (event.key) {
+    case "j": case "ArrowDown": move(name, 1); break;
+    case "k": case "ArrowUp": move(name, -1); break;
+    case "o": if (a && /^https?:\/\//.test(a.link)) window.open(a.link, "_blank", "noopener,noreferrer"); break;
+    case " ": {
+      // A focused control already acts on Space by itself.
+      if (event.target.closest("a, button, video") || !canDecide) return;
+      const video = list.detail.querySelector("video");
+      if (video?.paused) video.play().catch(() => {});
+      else video?.pause();
+      break;
+    }
+    case "n": if (canDecide) list.detail.querySelector(".note")?.focus(); break;
+    case "Enter":
+      // A focused button or link already acts on Enter by itself.
+      if (name !== "history" || event.target.closest("a, button") || !a) return;
+      openHistoryAlert(alertKey(a));
+      break;
+    case "Escape":
+      if (name !== "history" || !historyAlertOpen()) return;
+      closeHistoryAlert();
+      break;
+    default: {
+      // Holding a key repeats it; that must not judge a run of alerts.
+      const verdict = VERDICTS.find(([, , shortcut]) => shortcut === event.key);
+      if (!verdict || !a || event.repeat || !canDecide) return;
+      decide(name, a, verdict[0]);
+    }
+  }
+  event.preventDefault();
+});
+
+start();
+</script>
+</body>
+</html>

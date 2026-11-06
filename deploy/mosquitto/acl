@@ -1,0 +1,20 @@
+# The server reads/writes all devices, and only READS alerts from Frigate sites.
+user vigisift
+topic readwrite device/#
+topic read frigate/+/reviews
+
+# Each site's Frigate has its own user and may read/write only under that site's
+# prefix (`mqtt.topic_prefix: frigate/<site>`). Even a compromised site can't fake
+# another site's alerts. To add a site: add a block like the one below
+# (scripts/register_site.py prints it), create the password with mosquitto_passwd, then
+# restart the broker.
+user frigate-demo
+topic readwrite frigate/demo/#
+
+# Each device may speak only about itself (%u = username = device id) and listen only
+# to commands sent to it. Even a compromised device can't impersonate another
+# device or read a neighbour's commands.
+pattern write device/%u/telemetry
+pattern write device/%u/status
+pattern write device/%u/ack
+pattern read device/%u/command
