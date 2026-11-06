@@ -243,6 +243,7 @@ labelled clips from reviews.
 | D+++ | Alert detail: clip, AI summary, matched rule and verdict bar in the left column, scene and observations on the right; long lists show 3 items with "Show all" | ruff, mypy, pytest; headless Chrome at 1600x900, 1280x800 and 375x812 on sample alerts | Before, the clip left an empty column under it while the details beside it needed scrolling |
 | D+++ fix | Frigate gets the host's time zone (`TZ` in compose, filled in by `make`) | A real demo summary before and after | Frigate writes the alert's local time into the prompt; on UTC a 9:30 AM alert in UTC+7 reached the model as 2:30 AM, and the prompt is warier at night |
 | Demo | A static live demo at vigisift-demo.vercel.app: the real console page with its API answered in the browser (`demo/demo.js`) from 8 recorded alerts and their clips | `scripts/demo_site.py capture` against a clean stack, headless Chrome on the local build and the deployed site | Recorded through real Frigate with `qwen3-vl:8b-instruct`: 2 of 4 staged thefts flagged, 0 of 2 normal clips. The missed thefts stay in, so the demo shows the AI as it is |
+| Demo fix | The demo keeps only the 4 alerts whose AI text is right: 2 normal staged clips and 2 store-aisle clips | Each clip's frames read against its dataset label | The model described all 4 staged thefts wrongly (into the bag read as out of it, a pocketed item missed), 2 of them flagged for the wrong reason. Frigate asks at temperature 0, so a rerun gives the same text |
 
 ### Foundation stage log
 
