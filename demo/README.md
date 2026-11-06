@@ -4,7 +4,7 @@
 server behind it. `demo.js` loads before the page's own script and answers its API calls in the
 browser from recorded data:
 
-- The queue, history and metrics come from 8 recorded alerts. Verdicts change them for the
+- The queue, history and metrics come from 4 recorded alerts. Verdicts change them for the
   current tab only, and a reload starts over.
 - Clips are the MP4 files Frigate recorded for those alerts.
 - The live connection reports itself as live but sends nothing. Device commands and the assistant
@@ -18,17 +18,19 @@ A clean stack (`make demo`) with `qwen3-vl:8b-instruct`, rules from
 
 | Camera | Video | Alerts |
 |---|---|---|
-| `eval_cam` | 6 staged clips from the Shoplifting Dataset (MNNIT, CC BY 4.0): 4 thefts, 2 normal | 6: 2 thefts flagged, 2 missed, 2 normal |
+| `eval_cam` | 6 staged clips from the Shoplifting Dataset (MNNIT, CC BY 4.0): 4 thefts, 2 normal | 6 recorded, 2 kept: the normal clips |
 | `shop_aisle` | `store-aisle-detection.mp4` (intel-iot-devkit, CC BY 4.0) | 2, normal |
 
-The AI text is exactly what the model wrote, including a flagged theft it describes as taking an
-item out of the bag rather than putting one in.
+The AI text is exactly what the model wrote. The demo keeps 4 of the 8 recorded alerts
+(`demo_site.py drop`), so it shows the console; [the eval](../docs/03-eval.md) has the
+theft-detection numbers.
 
 ## Rebuild and publish
 
 ```bash
 # with a stack running and some summarised alerts
 VIGISIFT_USER=... VIGISIFT_PASSWORD=... uv run python scripts/demo_site.py capture
+uv run python scripts/demo_site.py drop <review_id>...   # optional
 uv run python scripts/demo_site.py build
 npx vercel deploy --prod samples/demo/site
 ```

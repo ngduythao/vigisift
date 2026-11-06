@@ -3,7 +3,7 @@
 **AI sifts the alerts, people decide.** A self-hosted console for CCTV operators who watch many
 sites, built on [Frigate](https://github.com/blakeblackshear/frigate).
 
-**[Try the live demo](https://vigisift-demo.vercel.app)**: the real console on 8 recorded alerts,
+**[Try the live demo](https://vigisift-demo.vercel.app)**: the real console on 4 recorded alerts,
 nothing to install. Judge alerts with `1` `2` `3`, move with `J` `K`, play clips with `Space`.
 
 ![The VigiSift console: the alert queue, then the selected alert's clip, AI summary and verdict buttons, with the AI's scene description and observations beside them](docs/images/console.png)

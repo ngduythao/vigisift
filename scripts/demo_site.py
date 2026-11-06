@@ -2,9 +2,11 @@
 
     # 1. With a VigiSift stack running and some summarised alerts, record them
     VIGISIFT_USER=... VIGISIFT_PASSWORD=... uv run python scripts/demo_site.py capture
-    # 2. Build the site (index.html, demo.js, fonts, data, clips) into samples/demo/site
+    # 2. Optionally drop alerts you don't want to show, by review id
+    uv run python scripts/demo_site.py drop 1793937504.946921-i8b7rc
+    # 3. Build the site (index.html, demo.js, fonts, data, clips) into samples/demo/site
     uv run python scripts/demo_site.py build
-    # 3. Publish the folder, for example: npx vercel deploy --prod samples/demo/site
+    # 4. Publish the folder, for example: npx vercel deploy --prod samples/demo/site
 
 Recordings and the built site live under samples/, so clips never enter git. Only alerts
 that ended and have a clip are kept: the demo plays every alert it lists.
@@ -91,6 +93,19 @@ def capture(args: argparse.Namespace) -> None:
     print(f"recorded {len(kept)} alerts with clips → {DATA.relative_to(ROOT)}")
 
 
+def drop(args: argparse.Namespace) -> None:
+    recorded_path = DATA / "demo-data.json"
+    recorded = json.loads(recorded_path.read_text())
+    unknown = set(args.review_ids) - {a["review_id"] for a in recorded["alerts"]}
+    if unknown:
+        sys.exit(f"not recorded: {', '.join(sorted(unknown))}")
+    recorded["alerts"] = [a for a in recorded["alerts"] if a["review_id"] not in args.review_ids]
+    for review in args.review_ids:
+        (DATA / "clips" / f"{review}.mp4").unlink(missing_ok=True)
+    recorded_path.write_text(json.dumps(recorded, ensure_ascii=False, indent=2))
+    print(f"dropped {len(args.review_ids)}, {len(recorded['alerts'])} alerts left")
+
+
 def build(_: argparse.Namespace) -> None:
     recorded = DATA / "demo-data.json"
     if not recorded.exists():
@@ -124,8 +139,10 @@ parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.R
 sub = parser.add_subparsers(dest="command", required=True)
 p_capture = sub.add_parser("capture")
 p_capture.add_argument("--vigisift", default="http://127.0.0.1:8000")
+p_drop = sub.add_parser("drop")
+p_drop.add_argument("review_ids", nargs="+")
 sub.add_parser("build")
 
 if __name__ == "__main__":
     parsed = parser.parse_args()
-    {"capture": capture, "build": build}[parsed.command](parsed)
+    {"capture": capture, "drop": drop, "build": build}[parsed.command](parsed)
