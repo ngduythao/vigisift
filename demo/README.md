@@ -34,3 +34,7 @@ npx vercel deploy --prod samples/demo/site
 ```
 
 Recordings and the built site stay under `samples/demo/`, so clips never enter git.
+
+The Vercel project is deliberately not connected to the GitHub repo: a git deploy would publish
+the repo root instead of the built site and replace the demo. `vercel link` connects it by
+itself, so run `npx vercel git disconnect` after linking a new project.
