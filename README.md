@@ -3,6 +3,9 @@
 **AI sifts the alerts, people decide.** A self-hosted console for CCTV operators who watch many
 sites, built on [Frigate](https://github.com/blakeblackshear/frigate).
 
+**[Try the live demo](https://vigisift-demo.vercel.app)**: the real console on 8 recorded alerts,
+nothing to install. Judge alerts with `1` `2` `3`, move with `J` `K`, play clips with `Space`.
+
 ![The VigiSift console: the alert queue, then the selected alert's clip, AI summary and verdict buttons, with the AI's scene description and observations beside them](docs/images/console.png)
 
 ## Where it stands
@@ -72,6 +75,9 @@ flowchart LR
 | MCP | the same toolbox (devices, recent camera alerts, commands) over stdio for Claude Code or Claude Desktop |
 
 ## Run
+
+The [live demo](https://vigisift-demo.vercel.app) needs no server: [demo/](demo/README.md) explains
+how it is recorded and built. To run the whole system:
 
 ```bash
 make install
