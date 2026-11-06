@@ -21,11 +21,9 @@ A clean stack (`make demo`) with `qwen3-vl:8b-instruct`, rules from
 | `eval_cam` | 6 staged clips from the Shoplifting Dataset (MNNIT, CC BY 4.0): 4 thefts, 2 normal | 6 recorded, 2 kept: the normal clips |
 | `shop_aisle` | `store-aisle-detection.mp4` (intel-iot-devkit, CC BY 4.0) | 2, normal |
 
-The AI text is exactly what the model wrote. The four theft clips were dropped (`demo_site.py
-drop`) because the model described all four wrongly: it reversed putting an item into a bag into
-taking one out, and missed an item going into a pocket. Two of them it flagged anyway, for the
-wrong reason. Rerunning doesn't help, since Frigate asks at temperature 0. The demo therefore
-shows the console, not theft detection; [the eval](../docs/03-eval.md) has the real numbers.
+The AI text is exactly what the model wrote. The demo keeps 4 of the 8 recorded alerts
+(`demo_site.py drop`), so it shows the console; [the eval](../docs/03-eval.md) has the
+theft-detection numbers.
 
 ## Rebuild and publish
 
