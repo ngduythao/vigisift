@@ -32,11 +32,12 @@ from typing import Any
 
 from eval_alerts import ROOT, RULES, TIMELINE, TIMELINE_VIDEO
 
+from vigisift.config import DEFAULT_VLM_MODEL
 from vigisift.domain.evaluation import Clip, Observed, assign, score
 from vigisift.domain.rules import (
-    CameraRules,
     activity_context,
     check_prompt,
+    from_dict,
     indicator_choices,
     match_level,
     review_report,
@@ -151,14 +152,7 @@ async def main(args: argparse.Namespace) -> None:
     clips = [Clip(**c) for c in timeline["clips"]]
     raw = json.loads(args.rules.read_text())
     # Build the prompt with vigisift's own code: a GUIDANCE edit is measured right away.
-    rules = CameraRules(
-        scene=raw["scene"],
-        normal=tuple(raw["normal"]),
-        suspicious=tuple(raw["suspicious"]),
-        critical=tuple(raw["critical"]),
-        concerns=tuple(raw.get("concerns", [])),
-    )
-    rules = validated(rules)
+    rules = validated(from_dict(raw))
     context = activity_context(rules)
     # Step 2, as VigiSift does on receiving a summary: compare the description with the rules.
     picker = OllamaIndicatorPicker(args.rule_model, args.ollama, num_ctx=NUM_CTX)
@@ -254,11 +248,8 @@ async def main(args: argparse.Namespace) -> None:
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
 parser.add_argument("--rules", type=Path, default=RULES)
-parser.add_argument("--model", default="qwen3-vl:8b-instruct", help="model Frigate describes with")
-# As `rule_check_model` in src/vigisift/config.py.
-parser.add_argument(
-    "--rule-model", default="qwen3-vl:8b-instruct", help="model VigiSift re-checks with"
-)
+parser.add_argument("--model", default=DEFAULT_VLM_MODEL, help="model Frigate describes with")
+parser.add_argument("--rule-model", default=DEFAULT_VLM_MODEL, help="model VigiSift re-checks with")
 parser.add_argument("--ollama", default="http://127.0.0.1:11434")
 parser.add_argument("--frames", type=int, default=FRAMES)
 parser.add_argument("--temperature", type=float, default=OPTIONS["temperature"])

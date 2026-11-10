@@ -5,7 +5,6 @@ VigiSift holds the rules, so it asks one easier question: "which indicator in th
 rules does this description match?". The effective level is the higher of the two scores.
 """
 
-import asyncio
 import logging
 
 from vigisift.domain.rules import (
@@ -16,7 +15,7 @@ from vigisift.domain.rules import (
     review_report,
 )
 from vigisift.features.alerts import repository as alerts
-from vigisift.features.alerts.handlers import alert_event
+from vigisift.features.alerts.service import alert_writer
 from vigisift.ports.cache import EventBus
 from vigisift.ports.llm import ChatUnavailableError
 from vigisift.ports.rule_check import IndicatorPicker
@@ -37,8 +36,8 @@ async def check_pending(
     """
     checked = 0
     while checked < limit:
-        async with session() as db:
-            row = await alerts.next_to_check(db)
+        async with alert_writer(session, events) as writer:
+            row = await alerts.next_to_check(writer.db)
             if row is None:
                 break
             rules = from_dict(row.rules)
@@ -49,27 +48,12 @@ async def check_pending(
                 log.warning("can't re-check %s/%s yet: %s", row.site_id, row.review_id, error)
                 break
             match = match_level(rules, choice)
-            alert = await alerts.save_check(
-                db,
+            await writer.save_check(
                 row.site_id,
                 row.review_id,
                 level=match.level,
                 match=match.indicator,
                 sha=row.sha,
             )
-        await events.publish(alert_event(alert))
         checked += 1
     return checked
-
-
-async def check_forever(
-    session: SessionScope, picker: IndicatorPicker, events: EventBus, interval_sec: float
-) -> None:
-    while True:
-        try:
-            # A full pass means more are waiting: continue; rest only when the queue is empty.
-            if await check_pending(session, picker, events) == BATCH:
-                continue
-        except Exception:
-            log.exception("rule re-check loop failed")
-        await asyncio.sleep(interval_sec)

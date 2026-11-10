@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
 from vigisift.domain.alert import AlertUpdate, review_link
 from vigisift.ports.frigate import FrigateSite
@@ -279,3 +279,17 @@ async def clip_source(session: AsyncSession, site_id: str, review_id: str) -> Fr
 async def list_sites(session: AsyncSession) -> list[dict[str, Any]]:
     rows = await session.execute(text("SELECT id, name, ui_url FROM sites ORDER BY name"))
     return [dict(row._mapping) for row in rows]
+
+
+_UPSERT_SITE = text(
+    "INSERT INTO sites (id, name, ui_url, api_url) VALUES (:id, :name, :ui, :api)"
+    " ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name,"
+    " ui_url = EXCLUDED.ui_url, api_url = EXCLUDED.api_url"
+)
+
+
+async def upsert_site(
+    db: AsyncSession | AsyncConnection, site_id: str, name: str, ui_url: str, api_url: str
+) -> None:
+    """Register a site or update its name and addresses (the reconcile mark is kept)."""
+    await db.execute(_UPSERT_SITE, {"id": site_id, "name": name, "ui": ui_url, "api": api_url})

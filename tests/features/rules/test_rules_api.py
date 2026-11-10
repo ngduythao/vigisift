@@ -6,9 +6,9 @@ from httpx import AsyncClient
 from sqlalchemy import text
 
 from tests.fakes.ports import FakeFrigateApi
-from vigisift.features.alerts.reconcile import ReconcilePolicy, Reconciler
 from vigisift.features.rules import repository
 from vigisift.features.rules.apply import push_pending
+from vigisift.features.rules.sync import RuleSync
 from vigisift.ports.frigate import FrigateSite
 from vigisift.runtime import Runtime
 
@@ -50,10 +50,7 @@ async def test_rules_survive_a_frigate_outage_and_are_pushed_later(
     assert saved["applied"] is False, "Frigate off: rules are saved anyway, waiting to push"
 
     frigate.failing.clear()
-    reconciler = Reconciler(
-        runtime.session, frigate, runtime.events, runtime.cooldown, ReconcilePolicy(300, 900, 3600)
-    )
-    await reconciler.run_once(force=True)
+    await RuleSync(runtime.session, frigate, runtime.cooldown, 300).run_once(force=True)
 
     [rules] = (await admin.get("/rules")).json()
     assert rules["applied"] is True
@@ -118,25 +115,20 @@ async def test_rules_changed_behind_our_back_in_frigate_are_put_back(
     # Someone restores an old Frigate config.yml.
     frigate.rules[("demo", "shop_aisle")] = ("old prompt", [])
 
-    reconciler = Reconciler(
-        runtime.session, frigate, runtime.events, runtime.cooldown, ReconcilePolicy(300, 900, 3600)
-    )
-    await reconciler.run_once(force=True)
+    await RuleSync(runtime.session, frigate, runtime.cooldown, 300).run_once(force=True)
 
     assert frigate.rules[("demo", "shop_aisle")] == expected
 
 
-def _reconciler(runtime: Runtime, frigate: FakeFrigateApi) -> Reconciler:
-    return Reconciler(
-        runtime.session, frigate, runtime.events, runtime.cooldown, ReconcilePolicy(300, 900, 3600)
-    )
+def _sync(runtime: Runtime, frigate: FakeFrigateApi) -> RuleSync:
+    return RuleSync(runtime.session, frigate, runtime.cooldown, 300)
 
 
 async def test_a_rejected_version_is_not_pushed_again_until_the_admin_saves(
     admin: AsyncClient, frigate: FakeFrigateApi, runtime: Runtime
 ) -> None:
     await admin.put("/sites/demo/cameras/back_door/rules", json=RULES)
-    await _reconciler(runtime, frigate).run_once(force=True)
+    await _sync(runtime, frigate).run_once(force=True)
 
     assert frigate.pushes.count(("demo", "back_door")) == 1, "Frigate already rejected this version"
 

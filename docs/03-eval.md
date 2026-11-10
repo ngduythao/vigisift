@@ -51,8 +51,8 @@ VIGISIFT_USER=admin VIGISIFT_PASSWORD=... uv run python scripts/eval_alerts.py s
 ### Quickly measuring only the scoring step (offline)
 
 `scripts/eval_grading.py` sends Ollama exactly what Frigate 0.18.2 sends per review
-(Frigate's prompt, 6 evenly spread frames, the same schema and parameters), then runs VigiSift's
-re-check. Each run takes ~25 minutes rather than an hour, so many fixes can be tried. The only difference from
+(Frigate's prompt, 8 evenly spread frames, the same schema and parameters), then runs VigiSift's
+re-check. A 40-clip run on the 8B model takes ~45 minutes rather than an hour, so many fixes can be tried. The only difference from
 the real system: frames are spread over the **whole clip**, while Frigate takes only the span where it
 still tracks a person. So offline numbers are the **ceiling** for the look-and-score step, with perfect
 detection.

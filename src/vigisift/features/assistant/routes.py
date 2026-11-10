@@ -10,7 +10,7 @@ from vigisift.features.assistant.agent import Agent, AgentEvent
 from vigisift.features.assistant.tools import Toolbox
 from vigisift.features.costs.ledger import record_call
 from vigisift.features.devices.commands import CommandService
-from vigisift.features.devices.routes import CommandResponse, submit_command
+from vigisift.features.devices.http import CommandResponse, submit_command
 from vigisift.ports.llm import ChatUnavailableError
 from vigisift.runtime import Runtime
 

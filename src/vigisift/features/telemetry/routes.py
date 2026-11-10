@@ -7,11 +7,11 @@ from vigisift.dependencies import WsRuntimeDep
 from vigisift.features.auth.guard import resolve, session_cookie
 from vigisift.features.auth.origin import same_origin
 
-router = APIRouter(tags=["telemetry"])
+router = APIRouter(tags=["events"])
 
 
-@router.websocket("/ws/telemetry")
-async def telemetry_stream(websocket: WebSocket, runtime: WsRuntimeDep) -> None:
+@router.websocket("/ws/events")
+async def event_stream(websocket: WebSocket, runtime: WsRuntimeDep) -> None:
     settings = runtime.settings
     token = websocket.cookies.get(session_cookie(settings))
     # Check before accepting: foreign pages (even on the same parent domain, where SameSite

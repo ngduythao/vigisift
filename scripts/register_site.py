@@ -12,10 +12,9 @@ import asyncio
 import sys
 from urllib.parse import urlsplit
 
-from sqlalchemy import text
-
 from vigisift.config import load_settings
 from vigisift.domain.alert import SITE_ID
+from vigisift.features.alerts.repository import upsert_site
 from vigisift.features.topics import frigate_topic_prefix
 from vigisift.infra.db.database import apply_schema, create_engine
 
@@ -48,14 +47,7 @@ async def main(args: argparse.Namespace) -> None:
     engine = create_engine(load_settings())
     await apply_schema(engine)
     async with engine.begin() as connection:
-        await connection.execute(
-            text(
-                "INSERT INTO sites (id, name, ui_url, api_url) VALUES (:id, :name, :ui, :api)"
-                " ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name,"
-                " ui_url = EXCLUDED.ui_url, api_url = EXCLUDED.api_url"
-            ),
-            {"id": args.site_id, "name": args.name, "ui": args.ui_url, "api": args.api_url},
-        )
+        await upsert_site(connection, args.site_id, args.name, args.ui_url, args.api_url)
     await engine.dispose()
     user = f"frigate-{args.site_id}"
     print(f"registered site {args.site_id}")

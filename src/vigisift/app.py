@@ -1,5 +1,4 @@
 import asyncio
-import contextlib
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from functools import partial
@@ -9,21 +8,22 @@ from fastapi import Depends, FastAPI, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from vigisift import bootstrap
+from vigisift import background, bootstrap
 from vigisift.config import Settings, load_settings
 from vigisift.features import topics
+from vigisift.features.alerts import jobs as alert_jobs
 from vigisift.features.alerts.handlers import on_review
-from vigisift.features.alerts.reconcile import ReconcilePolicy, Reconciler, reconcile_forever
 from vigisift.features.alerts.routes import router as alerts_router
 from vigisift.features.assistant.routes import router as assistant_router
 from vigisift.features.auth.guard import require_operator
 from vigisift.features.auth.origin import same_origin
 from vigisift.features.auth.routes import router as auth_router
 from vigisift.features.costs.routes import router as costs_router
-from vigisift.features.devices.handlers import on_ack, on_status, sweep_forever
+from vigisift.features.devices import jobs as device_jobs
+from vigisift.features.devices.handlers import on_ack, on_status
 from vigisift.features.devices.routes import router as devices_router
 from vigisift.features.review.routes import router as review_router
-from vigisift.features.rules.check import check_forever
+from vigisift.features.rules import jobs as rule_jobs
 from vigisift.features.rules.routes import router as rules_router
 from vigisift.features.telemetry.handlers import on_telemetry
 from vigisift.features.telemetry.hub import TelemetryHub
@@ -53,19 +53,12 @@ def subscribe(runtime: Runtime) -> None:
     runtime.mqtt.subscribe(topics.STATUS, partial(on_status, runtime))
 
 
-def _reconciler(runtime: Runtime) -> Reconciler:
-    settings = runtime.settings
-    return Reconciler(
-        runtime.session,
-        runtime.frigate,
-        runtime.events,
-        runtime.cooldown,
-        ReconcilePolicy(
-            interval_sec=settings.frigate_reconcile_interval_sec,
-            overlap_sec=settings.frigate_reconcile_overlap_sec,
-            initial_lookback_sec=settings.frigate_initial_lookback_sec,
-        ),
-    )
+def background_jobs(runtime: Runtime) -> list[background.Job]:
+    return [
+        *alert_jobs.background_jobs(runtime),
+        *rule_jobs.background_jobs(runtime),
+        *device_jobs.background_jobs(runtime),
+    ]
 
 
 def create_app(
@@ -99,29 +92,11 @@ def create_app(
         )
         app.state.runtime = runtime
         subscribe(runtime)
-        sweeper = asyncio.create_task(sweep_forever(runtime))
-        reconciler = asyncio.create_task(
-            reconcile_forever(_reconciler(runtime), resolved.frigate_reconcile_interval_sec)
-        )
-        tasks = [reconciler, sweeper, listener]
-        if runtime.rule_picker is not None:
-            tasks.append(
-                asyncio.create_task(
-                    check_forever(
-                        runtime.session,
-                        runtime.rule_picker,
-                        runtime.events,
-                        resolved.rule_check_interval_sec,
-                    )
-                )
-            )
+        jobs = background.start(background_jobs(runtime))
         try:
             yield
         finally:
-            for task in tasks:
-                task.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await task
+            await background.stop([*jobs, listener])
             runtime.mqtt.close()
             await runtime.frigate.aclose()
             if runtime.rule_picker is not None:

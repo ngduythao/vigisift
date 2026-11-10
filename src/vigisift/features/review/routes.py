@@ -8,6 +8,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from vigisift.dependencies import RuntimeDep, SessionDep
+from vigisift.domain.events import EventType
 from vigisift.domain.operator import Verdict
 from vigisift.features.alerts import repository as alerts
 from vigisift.features.alerts.view import AlertView
@@ -77,7 +78,7 @@ async def decide(
     # Other operators see the alert leave their queue right away.
     await runtime.events.publish(
         {
-            "type": "alert_verdict",
+            "type": EventType.ALERT_VERDICT,
             "site_id": site_id,
             "review_id": review_id,
             "verdict": payload.verdict.value,

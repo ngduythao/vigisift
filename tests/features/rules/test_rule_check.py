@@ -8,8 +8,8 @@ from tests.fakes.ports import FakeFrigateApi, FakeIndicatorPicker
 from tests.features.alerts.frigate import START, SUMMARY, message, segment
 from vigisift.features.alerts import repository
 from vigisift.features.alerts.payload import parse_review_message
-from vigisift.features.alerts.reconcile import ReconcilePolicy, Reconciler
 from vigisift.features.rules.check import check_pending
+from vigisift.features.rules.sync import RuleSync
 from vigisift.runtime import Runtime
 
 POCKET = "A person putting a product into their own pocket or bag"
@@ -162,9 +162,7 @@ async def test_rules_written_under_old_system_guidance_are_rebuilt_and_pushed(
         # As after a release that changes the system's fixed prompt part.
         await session.execute(text("UPDATE camera_rules SET prompt = 'old prompt', sha = 'old'"))
 
-    await Reconciler(
-        runtime.session, frigate, runtime.events, runtime.cooldown, ReconcilePolicy(300, 900, 3600)
-    ).run_once(force=True)
+    await RuleSync(runtime.session, frigate, runtime.cooldown, 300).run_once(force=True)
 
     [rules] = (await admin.get("/rules")).json()
     assert rules["prompt"] != "old prompt" and rules["applied"] is True

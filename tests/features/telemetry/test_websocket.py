@@ -41,7 +41,7 @@ def test_a_browser_sees_telemetry_without_polling(settings: Settings) -> None:
 
     with TestClient(app) as http:
         assert http.post("/auth/login", json={"username": "anna", "password": PASSWORD}).is_success
-        with http.websocket_connect("/ws/telemetry") as socket:
+        with http.websocket_connect("/ws/events") as socket:
             mqtt.deliver("device/lamp-1/telemetry", json.dumps({"state": "OFF", "lux": 12}))
             pushed = json.loads(socket.receive_text())
 
@@ -57,7 +57,7 @@ def test_the_event_stream_needs_a_login(settings: Settings) -> None:
     with (
         TestClient(app) as http,
         pytest.raises(WebSocketDisconnect) as closed,
-        http.websocket_connect("/ws/telemetry") as socket,
+        http.websocket_connect("/ws/events") as socket,
     ):
         socket.receive_text()
 
@@ -72,9 +72,7 @@ def test_a_page_from_another_origin_cannot_open_the_stream(settings: Settings) -
         assert http.post("/auth/login", json={"username": "anna", "password": PASSWORD}).is_success
         with (
             pytest.raises(WebSocketDisconnect) as closed,
-            http.websocket_connect(
-                "/ws/telemetry", headers={"origin": "https://evil.example"}
-            ) as ws,
+            http.websocket_connect("/ws/events", headers={"origin": "https://evil.example"}) as ws,
         ):
             ws.receive_text()
 
@@ -87,7 +85,7 @@ def test_logging_out_also_closes_the_open_stream(settings: Settings) -> None:
 
     with TestClient(app) as http:
         assert http.post("/auth/login", json={"username": "anna", "password": PASSWORD}).is_success
-        with http.websocket_connect("/ws/telemetry") as ws:
+        with http.websocket_connect("/ws/events") as ws:
             http.post("/auth/logout")
             with pytest.raises(WebSocketDisconnect) as closed:
                 ws.receive_text()
