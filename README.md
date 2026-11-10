@@ -238,8 +238,10 @@ the design:
   with a hard 120-second timeout and Ollama runs one review at a time. On an M4 Pro (24 GB) with
   `qwen3-vl:8b-instruct` and 8 frames, each review takes ~65 seconds and kept up with one alert every
   ~86 seconds for an hour (0 timeouts). At ~74 alerts per hour from two cameras, about half the alerts
-  got no summary. Busier sites need a faster VLM machine or Frigate zones so only people at the
-  products raise alerts.
+  got no summary. Busier sites need a faster VLM machine, or Frigate zones so only people at the
+  products raise alerts: draw a zone in Frigate's UI (Settings, Masks / Zones) and list it in the
+  camera's `review.alerts.required_zones` (commented example on `shop_aisle` in the template). Six
+  frames instead of eight saved 22% of the time but caught fewer thefts (run 17), so eight stay.
 - **Theft recall is moderate, and untested on real footage.** Checking the same frames by eye, about
   half the thefts are clearly visible, so a stronger model could still do better; still images also
   hide direction, and the model sometimes says an item came out of the bag. Rewording the rules has

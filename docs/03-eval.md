@@ -646,3 +646,51 @@ would have been tuned on the test set and would flag customers with bags.
 The level stays as it is, and no "needs a look" level was built. A text-only re-check can't recover what
 the description leaves out; only a better description can. Replay mode stays, because it measures
 any re-check change in minutes.
+
+## Run 17: six frames, a before/after question, and zones, 2026-11-10
+
+Three ways to save the machine's time or catch more, each measured once.
+
+**Six frames instead of eight** (offline, 8B, temperature 0, test3):
+
+| | 8 frames (run 12) | 6 frames |
+|---|---|---|
+| Caught (effective level) | 7/20 | 5/20 |
+| False alarms | 0/20 | 1/20 |
+| Time per request (median / longest) | 64 / 70 seconds | 50 / 55 seconds |
+
+Six frames lost 2 thefts the eight-frame run caught, Shoplifting (28) and (91), and gained none.
+They also flagged Normal (72) ("placing one of them into his backpack"). The bar was at most 1
+clip lost for at least 15% less time; the time fell 22%, but 2 clips were lost. Eight frames stay.
+
+**A before/after question** (`eval_grading.py --table-check`): the clip's first and last frame,
+asking whether a product left the table (`yes`, `no` or `unclear`), counted on top of a saved run:
+
+| Set | Answers | Flagged before | With the question |
+|---|---|---|---|
+| dev | 38 `no`, 2 `unclear` | 12/20 thefts, 0/20 normal | the same |
+| test3 | 40 `no` | 7/20 thefts, 0/20 normal | the same |
+
+The model never answered `yes`, not even for thefts. Looking at the pairs by eye explains it. Small
+items sit on a cluttered table at 480p, and the first or last frame often still holds the person
+or already lacks them. A missing item is hard to see even for a person. The question was not
+added to the product.
+
+**Zones** (`required_zones`): two Frigates watched the same looped store-aisle sample for 30
+minutes. One required a zone over the front half of the aisle floor:
+
+| | No zone | Zone required |
+|---|---|---|
+| Alerts | 15 | 15 |
+| Alert time | 716 seconds | 716 seconds |
+
+No difference: in this video someone always stands in the front half. Zones help where people
+pass by without stopping at products, which only real cameras will show. The template keeps the
+zone as a commented example on `shop_aisle`. The first attempt counted no alerts at all, because
+recording was off in the test config, and Frigate stores tracked objects and reviews only when
+recording or snapshots are on.
+
+### Conclusion
+
+None of the three changes the defaults. The capacity lever left untried is the machine; the accuracy
+lever left untried is the model's eyes (a stronger VLM) and real footage.

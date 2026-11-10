@@ -192,6 +192,17 @@ cameras:
       width: 720
       height: 404
       fps: 5
+    # Raise alerts only for people standing where the products are, so passers-by don't use
+    # the VLM's ~50 summaries per hour. Draw the zone on each real camera (Frigate UI, Settings,
+    # Masks / Zones); a person counts by where their feet are. On this sample video it changed
+    # nothing, someone is always near the shelves (docs/03-eval.md run 17), so it stays off here.
+    # zones:
+    #   aisle_front:
+    #     coordinates: 0.12,1,0.12,0.4,0.88,0.4,0.88,1
+    # review:
+    #   alerts:
+    #     required_zones:
+    #       - aisle_front
 
   # Camera for the eval set (scripts/eval_alerts.py): plays a video joined from labelled clips.
   # Until the video is built it plays a test pattern, with no people and no alerts.
