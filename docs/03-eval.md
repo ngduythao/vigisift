@@ -613,3 +613,36 @@ Reading the tables:
 Bag tracking stays off. The gain is not separable from chance, and its mechanism, flagging anyone who
 handles a bag, would add false alarms where customers carry bags. Measure it again only on real video,
 recorded with consent.
+
+## Run 16: a "needs a look" choice in the re-check, replayed offline, 2026-11-10
+
+The idea: when the description hedges about a product and a bag, send the alert to an operator
+instead of leaving it at level 0. The re-check got one more choice, ranked after the suspicious
+indicators and before the normal ones:
+
+> unclear: a product and the person's own bag, pocket or clothing are both involved, but the report
+> hedges (appears to, possibly, seems) or says something came out of it
+
+Measured with the new `eval_grading.py --replay`. It re-runs only the re-check, on the descriptions
+saved by earlier offline runs (8B model, 8 frames, temperature 0), with rules v2:
+
+| Set (saved run) | Flagged, as before | Flagged or "needs a look" | Picked "unclear" |
+|---|---|---|---|
+| dev (grading-1793880872) | 12/20 thefts, 0/20 normal | 12/20 thefts, 0/20 normal | 0 of 40 |
+| test3 (grading-1793531955) | 7/20 thefts, 0/20 normal | 7/20 thefts, 0/20 normal | 0 of 40 |
+
+The replay reproduced each run's own result, so the comparison is clean. The new choice was never
+picked. The plan's bar was at least 3 more thefts on test3, with no more normal clips than thefts.
+
+Why: the missed thefts are not described ambiguously. Their descriptions read as normal shopping:
+"picks up an item, examines it, and returns it", "walks away without taking anything". Searching
+the unflagged descriptions for a bag word together with a hedge word found 0 of the 8 missed dev
+thefts. On test3 it found 4 of 13 missed thefts and 2 of 20 normal clips. All 4 thefts were actors
+holding a backpack near the table, the same dataset artifact as in run 15. A keyword rule built on them
+would have been tuned on the test set and would flag customers with bags.
+
+### Conclusion
+
+The level stays as it is, and no "needs a look" level was built. A text-only re-check can't recover what
+the description leaves out; only a better description can. Replay mode stays, because it measures
+any re-check change in minutes.
