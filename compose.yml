@@ -17,8 +17,11 @@ services:
     image: eclipse-mosquitto:2.0.22
     ports:
       - "127.0.0.1:1883:1883"
+      # TLS, once `make certs` has written deploy/mosquitto/conf.d/tls.conf.
+      - "127.0.0.1:8883:8883"
     volumes:
       - ./deploy/mosquitto:/mosquitto/config:ro
+      - ./deploy/certs:/mosquitto/certs:ro
       - mosquitto-data:/mosquitto/data
 
   mediamtx:
@@ -67,6 +70,8 @@ services:
       TZ: ${TZ:-UTC}
     volumes:
       - ./deploy/frigate/config:/config
+      # The CA for MQTT over TLS (template, `mqtt` block).
+      - ./deploy/certs:/certs:ro
       - frigate-media:/media/frigate
       - type: tmpfs
         target: /tmp/cache
@@ -90,16 +95,40 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/vigisift
       MQTT_HOST: mosquitto
+      # MQTT over TLS: MQTT_PORT=8883 MQTT_TLS=true MQTT_CA_FILE=/certs/ca.crt (after `make certs`).
+      MQTT_PORT: ${MQTT_PORT:-1883}
+      MQTT_TLS: ${MQTT_TLS:-false}
+      MQTT_CA_FILE: ${MQTT_CA_FILE:-}
       REDIS_URL: redis://valkey:6379/0
       # Ollama runs on the host (the Mac's GPU), the same way Frigate calls it.
       OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
-      # Dev over http://127.0.0.1. For real use behind HTTPS, remove this line (the default is true)
-      # and set PUBLIC_ORIGIN and FORWARDED_ALLOW_IPS (see README).
-      SESSION_COOKIE_SECURE: "false"
+      # Dev over http://127.0.0.1. Behind HTTPS (the `tls` profile below, or your own proxy) set
+      # SESSION_COOKIE_SECURE=true, PUBLIC_ORIGIN and FORWARDED_ALLOW_IPS (see README).
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-}
+      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-127.0.0.1}
       ASSISTANT_ENABLED: ${ASSISTANT_ENABLED:-false}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    volumes:
+      - ./deploy/certs:/certs:ro
     ports:
       - "127.0.0.1:8000:8000"
+
+  # HTTPS in front of the console: `make certs`, then
+  # `SESSION_COOKIE_SECURE=true PUBLIC_ORIGIN=https://localhost:8443 FORWARDED_ALLOW_IPS='*' \
+  #   docker compose --profile tls up -d` and open https://localhost:8443. Inside this compose
+  # network only Caddy reaches the api's port, which is why '*' is acceptable here; with the api
+  # reachable from elsewhere, list the proxy's address instead.
+  caddy:
+    image: caddy:2.10.2-alpine
+    profiles: [tls]
+    depends_on:
+      - api
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./deploy/certs:/certs:ro
+    ports:
+      - "127.0.0.1:8443:8443"
 
 volumes:
   mosquitto-data:

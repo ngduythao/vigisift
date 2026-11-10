@@ -10,3 +10,7 @@ samples/*
 # Frigate's runtime directory: DB, model cache, and the config.yml Frigate rewrites
 # when it receives camera rules. The template is deploy/frigate/config.template.yml.
 deploy/frigate/config/
+# Written by scripts/make_certs.sh.
+deploy/certs/*
+!deploy/certs/README
+deploy/mosquitto/conf.d/*.conf

@@ -26,6 +26,9 @@ jobs:
       - name: Validate compose
         run: docker compose config --quiet
 
+      - name: Dev certificates (Mosquitto's TLS listener, tested in tests/infra/mqtt)
+        run: make certs
+
       - name: Start infrastructure
         run: docker compose up -d --wait postgres mosquitto valkey
 

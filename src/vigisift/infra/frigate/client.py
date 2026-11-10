@@ -1,3 +1,4 @@
+import ssl
 from collections.abc import AsyncIterator, Mapping
 from http.cookies import SimpleCookie
 from typing import Any
@@ -41,10 +42,16 @@ class HttpFrigateApi:
         credentials: Mapping[str, tuple[str, str]],
         timeout_sec: float = 10,
         transport: httpx.AsyncBaseTransport | None = None,
+        ca_file: str | None = None,
     ) -> None:
         self._credentials = dict(credentials)
         self._tokens: dict[str, str] = {}
-        self._http = httpx.AsyncClient(timeout=timeout_sec, transport=transport)
+        # HTTPS to a Frigate with a private certificate: trust that CA as well as the system's.
+        verify: ssl.SSLContext | bool = True
+        if ca_file is not None:
+            verify = ssl.create_default_context()
+            verify.load_verify_locations(ca_file)
+        self._http = httpx.AsyncClient(timeout=timeout_sec, transport=transport, verify=verify)
 
     async def reviews(
         self, site: FrigateSite, *, after: float, before: float, limit: int

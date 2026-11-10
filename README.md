@@ -143,10 +143,26 @@ Running it for real, behind a TLS reverse proxy:
 
 | Setting | Why |
 |---|---|
-| leave `SESSION_COOKIE_SECURE` unset (true) | the session cookie is then `__Host-`, HTTPS-only |
+| `SESSION_COOKIE_SECURE=true` (the default outside compose) | the session cookie is then `__Host-`, HTTPS-only |
 | `PUBLIC_ORIGIN=https://vigisift.example.com` | writes and the WebSocket must come from the console itself; proxies often rewrite `Host` |
-| `FORWARDED_ALLOW_IPS=<proxy address>` | uvicorn then takes the client IP from the proxy for login throttling; never `*` |
-| TLS on Mosquitto and Frigate `mqtt.tls_*` | sites reach the centre over the internet |
+| `FORWARDED_ALLOW_IPS=<proxy address>` | uvicorn then takes the client IP from the proxy for login throttling; `*` only when nothing but the proxy can reach the api |
+| `MQTT_PORT=8883`, `MQTT_TLS=true`, `MQTT_CA_FILE` | sites reach the centre's broker over the internet |
+| each site's Frigate: `mqtt.port: 8883`, `mqtt.tls_ca_certs`; `tls.enabled: true` | the template shows both; VigiSift trusts a private CA with `FRIGATE_CA_FILE` |
+
+Try it all on the dev stack with a private CA:
+
+```bash
+make certs
+docker compose restart mosquitto
+SESSION_COOKIE_SECURE=true PUBLIC_ORIGIN=https://localhost:8443 FORWARDED_ALLOW_IPS='*' \
+  MQTT_PORT=8883 MQTT_TLS=true MQTT_CA_FILE=/certs/ca.crt \
+  docker compose --profile tls up -d --build
+```
+
+The console is then at https://localhost:8443 (trust `deploy/certs/ca.crt` in the browser, or
+accept the warning), and the api talks to Mosquitto on 8883. For a real centre, replace the files
+in `deploy/certs/` with certificates from your own or a public CA (Caddy can also fetch a public
+one itself: see `deploy/caddy/Caddyfile`), and stop publishing port 1883 beyond localhost.
 
 Simulate devices (password `devpass`):
 
@@ -218,8 +234,6 @@ the design:
 
 ## Not done yet
 
-- MQTT between a remote site and the centre needs TLS (Mosquitto listener plus Frigate
-  `mqtt.tls_*`); the dev stack runs without it.
 - **About 50 summaries per hour per VLM machine, shared by all its cameras.** Frigate calls the VLM
   with a hard 120-second timeout and Ollama runs one review at a time. On an M4 Pro (24 GB) with
   `qwen3-vl:8b-instruct` and 8 frames, each review takes ~65 seconds and kept up with one alert every
