@@ -134,6 +134,7 @@ record:
       days: 3
 
 objects:
+  # Tracking backpacks and handbags too was measured and not adopted (docs/03-eval.md run 15).
   track:
     - person
 
