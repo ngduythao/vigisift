@@ -69,6 +69,9 @@ class PahoMqttClient:
         username: str | None = None,
         password: str | None = None,
         client_id: str | None = None,
+        *,
+        tls: bool = False,
+        ca_file: str | None = None,
     ) -> None:
         # client_id must be unique: the broker kicks the old connection when a new one uses
         # the same id, and two instances sharing an id keep kicking each other.
@@ -78,6 +81,9 @@ class PahoMqttClient:
         )
         if username:
             self._client.username_pw_set(username, password)
+        if tls:
+            # Verifies the broker's certificate and name; `ca_file` None means the system's CAs.
+            self._client.tls_set(ca_certs=ca_file)
         self._subscriptions: list[Subscription] = []
         self._client.on_connect = self._on_connect
         self._client.on_message = self._on_message

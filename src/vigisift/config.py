@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field, SecretStr, model_validator
+from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # The vision model everything defaults to: Frigate's summaries, the rule re-check, the local
@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     mqtt_port: int = Field(default=1883, gt=0)
     mqtt_username: str | None = "vigisift"
     mqtt_password: str | None = "vigisift"
+    # TLS to the broker (port 8883, `make certs`). `mqtt_ca_file` is the CA to trust: empty uses
+    # the system's CAs, as with a broker holding a public certificate.
+    mqtt_tls: bool = False
+    mqtt_ca_file: str | None = None
     # A command sent to a device must arrive, but the device can lose power midway;
     # past this deadline the command counts as missed instead of hanging forever.
     command_timeout_sec: int = Field(default=30, gt=0)
@@ -68,6 +72,9 @@ class Settings(BaseSettings):
     # A site never reconciled before reads back this far.
     frigate_initial_lookback_sec: float = Field(default=24 * 3600, gt=0)
     frigate_timeout_sec: float = Field(default=10, gt=0)
+    # The CA for sites whose Frigate serves HTTPS with a private certificate (`make certs` writes
+    # deploy/certs/ca.crt). Empty trusts the system's CAs.
+    frigate_ca_file: str | None = None
     # Push camera rules Frigate is missing or changed (features/rules/sync.py).
     rule_sync_interval_sec: float = Field(default=300, ge=10)
     # JSON by site id, for example {"bakery-store": {"user": "vigisift", "password": "..."}}.
@@ -103,6 +110,12 @@ class Settings(BaseSettings):
     # judged are eval labels: kept `reviewed_retention_days` (label export reaches back 365).
     retention_days: int = Field(default=90, ge=1)
     reviewed_retention_days: int = Field(default=365, ge=1)
+
+    @field_validator("public_origin", "mqtt_ca_file", "frigate_ca_file", mode="before")
+    @classmethod
+    def _empty_is_unset(cls, value: object) -> object:
+        # compose passes `${PUBLIC_ORIGIN:-}` as an empty string when it isn't set.
+        return None if value == "" else value
 
     @model_validator(mode="after")
     def _reviewed_kept_at_least_as_long(self) -> "Settings":

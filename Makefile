@@ -1,4 +1,4 @@
-.PHONY: install up down seed lint format typecheck test check run frigate-config detector demo mcp
+.PHONY: install up down seed lint format typecheck test check run frigate-config certs detector demo mcp
 
 # The host's time zone for Frigate (see compose.yml), unless TZ is already set.
 TZ ?= $(shell readlink /etc/localtime 2>/dev/null | sed 's|.*/zoneinfo/||')
@@ -38,6 +38,10 @@ run:
 frigate-config:
 	@mkdir -p deploy/frigate/config
 	@test -f deploy/frigate/config/config.yml || cp deploy/frigate/config.template.yml deploy/frigate/config/config.yml
+
+# Dev certificates and Mosquitto's TLS listener (8883). Restart mosquitto after the first run.
+certs:
+	sh scripts/make_certs.sh
 
 # Person detection on the Mac's Neural Engine, outside Docker (README). Listens only on
 # 127.0.0.1: the socket has no authentication, and Frigate in Docker still reaches it through

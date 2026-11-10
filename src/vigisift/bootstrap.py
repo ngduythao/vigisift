@@ -45,12 +45,19 @@ def build_frigate(settings: Settings) -> FrigateApi:
         site: (credential.user, credential.password.get_secret_value())
         for site, credential in settings.frigate_credentials.items()
     }
-    return HttpFrigateApi(credentials, settings.frigate_timeout_sec)
+    return HttpFrigateApi(
+        credentials, settings.frigate_timeout_sec, ca_file=settings.frigate_ca_file
+    )
 
 
 def build_mqtt(settings: Settings) -> MqttClient:
     return PahoMqttClient(
-        settings.mqtt_host, settings.mqtt_port, settings.mqtt_username, settings.mqtt_password
+        settings.mqtt_host,
+        settings.mqtt_port,
+        settings.mqtt_username,
+        settings.mqtt_password,
+        tls=settings.mqtt_tls,
+        ca_file=settings.mqtt_ca_file,
     )
 
 

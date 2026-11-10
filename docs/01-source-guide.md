@@ -257,8 +257,10 @@ center needs.
 ## What's still missing
 
 - No single sign-on (SSO) yet: operators use their own VigiSift accounts.
-- **MQTT between site and center has no TLS** in the dev build; sites over the internet must
-  enable Mosquitto's TLS listener and Frigate's `mqtt.tls_*`.
+- TLS is ready but off by default in the dev build: `make certs` turns on Mosquitto's listener on
+  8883, VigiSift connects with `MQTT_TLS`, sites with Frigate's `mqtt.tls_ca_certs`, and the
+  `tls` compose profile puts Caddy in front of the console. Port 1883 stays open on localhost for
+  dev; a real centre closes it to the network.
 - No backpressure when telemetry overloads: a full queue drops messages for that
   slow client only, with no way to tell the client it's being dropped.
 - AI summaries take about a minute per review on a laptop (Frigate cuts at 120 seconds), so one

@@ -22,12 +22,20 @@ mqtt:
   password: "{FRIGATE_MQTT_PASSWORD}"
   # The default is 0 (send once, lost is lost). Alerts must arrive.
   qos: 1
+  # A site reaching the broker over the internet uses TLS (`make certs` on the dev stack):
+  # port 8883, and the CA that signed the broker's certificate (compose mounts deploy/certs
+  # at /certs). Leave tls_client_cert/key unset: sites sign in with user and password.
+  # port: 8883
+  # tls_ca_certs: /certs/ca.crt
 
 auth:
   enabled: true
 
 tls:
-  # Dev: the UI at http://127.0.0.1:8971 is open only on localhost. A real site sets true.
+  # Dev: the UI at http://127.0.0.1:8971 is open only on localhost. A real site sets true:
+  # Frigate then serves 8971 over HTTPS with /etc/letsencrypt/live/frigate/{fullchain,privkey}.pem
+  # (a self-signed pair if those are missing). For a private CA, mount deploy/certs/frigate.crt
+  # and .key there, and give VigiSift FRIGATE_CA_FILE.
   enabled: false
 
 detectors:

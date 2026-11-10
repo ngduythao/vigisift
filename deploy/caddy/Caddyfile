@@ -1,0 +1,13 @@
+# HTTPS in front of the VigiSift console (compose profile `tls`), with the certificate from
+# scripts/make_certs.sh. A real deployment names its own host here and lets Caddy get a
+# public certificate (drop the `tls` line), or points `tls` at its own files.
+{
+	auto_https disable_redirects
+	admin off
+}
+
+https://localhost:8443 {
+	tls /certs/console.crt /certs/console.key
+	# Caddy passes X-Forwarded-For and X-Forwarded-Proto, and keeps the WebSocket upgrade.
+	reverse_proxy api:8000
+}
