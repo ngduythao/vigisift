@@ -16,6 +16,10 @@ the `test` set, after the fix is settled.
 descriptions a previous run saved, in a few minutes. Use it for changes to the re-check alone
 (src/vigisift/domain/rules.py: the choices and the prompt), measured on the same descriptions.
 
+`--table-check grading-<ts>.json` tries a before/after question: it shows the model the clip's
+first and last frame and asks whether a product left the table, then counts a clip flagged if the
+saved run flagged it OR the answer is "yes". Needs the same set prepared as the saved run.
+
 `--frames` changes the frame count (Frigate adjusts it through `num_ctx`, at most 1 frame per
 review second). Temperature defaults to 0 like the Frigate config: at 0.5 (Frigate's default) the
 model answers randomly; one config run twice on dev gave 7/20 and 4/20, so no comparing configs.
@@ -31,6 +35,7 @@ import sys
 import tempfile
 import time
 import urllib.request
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -258,6 +263,11 @@ parser.add_argument("--ollama", default="http://127.0.0.1:11434")
 parser.add_argument(
     "--replay", type=Path, help="re-check the descriptions saved in this grading-*.json, no images"
 )
+parser.add_argument(
+    "--table-check",
+    type=Path,
+    help="ask the before/after question on the first and last frame, added to this grading-*.json",
+)
 parser.add_argument("--frames", type=int, default=FRAMES)
 parser.add_argument("--temperature", type=float, default=OPTIONS["temperature"])
 parser.add_argument(
@@ -314,10 +324,93 @@ async def replay(args: argparse.Namespace) -> None:
     print(f"details: {out.relative_to(ROOT)}")
 
 
+TABLE_PROMPT = """The two images come from a fixed security camera above a table of products
+for sale. Image 1 is the start of the clip, image 2 the end, after the person has left or is
+leaving. Compare the products on the table in the two images. Did any product that is on the
+table in image 1 disappear from the table by image 2 (not just moved to another spot on it)?
+Answer "unclear" if the table is hidden in either image or you can't tell."""
+
+
+@dataclass(frozen=True)
+class TableRow:
+    file: str
+    suspicious: bool
+    # The saved run's effective level was 1 or more.
+    flagged: bool
+    gone: str
+
+
+TABLE_SCHEMA = {
+    "type": "object",
+    "properties": {"product_gone": {"type": "string", "enum": ["yes", "no", "unclear"]}},
+    "required": ["product_gone"],
+}
+
+
+def table_check(args: argparse.Namespace) -> None:
+    """The before/after question on each clip, scored together with a saved run."""
+    saved = {clip["file"]: clip for clip in json.loads(args.table_check.read_text())["clips"]}
+    clips = [Clip(**c) for c in json.loads(TIMELINE.read_text())["clips"]]
+    missing = [clip.name for clip in clips if clip.name not in saved]
+    if missing:
+        sys.exit(f"{args.table_check.name} has no answer for {missing[0]}: prepare the same set")
+    rows = []
+    with tempfile.TemporaryDirectory() as tmp:
+        for index, clip in enumerate(clips):
+            images = _frames(clip, Path(tmp), 2)
+            body = {
+                "model": args.model,
+                "prompt": TABLE_PROMPT,
+                "images": images,
+                "format": TABLE_SCHEMA,
+                "think": False,
+                "stream": False,
+                "keep_alive": "10m",
+                "options": OPTIONS | {"temperature": args.temperature, "num_predict": 50},
+            }
+            request = urllib.request.Request(
+                f"{args.ollama}/api/generate",
+                json.dumps(body).encode(),
+                {"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(request, timeout=300) as response:
+                reply = json.load(response)
+            try:
+                gone = str(json.loads(reply.get("response") or "")["product_gone"])
+            except (ValueError, KeyError, TypeError):
+                gone = "no answer"
+            before = saved[clip.name]
+            flagged = max(before["level"] or 0, before.get("rule_level") or 0) >= 1
+            rows.append(TableRow(clip.name, clip.suspicious, flagged, gone))
+            label = "THEFT " if clip.suspicious else "normal"
+            print(
+                f"{index + 1:2}/{len(clips)} {label} flagged={flagged!s:5} gone={gone}", flush=True
+            )
+
+    for name, rows_of in (("thefts", True), ("normal", False)):
+        group = [row for row in rows if row.suspicious is rows_of]
+        before = sum(row.flagged for row in group)
+        after = sum(row.flagged or row.gone == "yes" for row in group)
+        said_gone = sum(row.gone == "yes" for row in group)
+        print(
+            f"{name}: flagged {before}/{len(group)}, with the table check {after}/{len(group)}"
+            f" (table check alone says gone: {said_gone})"
+        )
+    out = ROOT / "evals" / "results" / f"table-{int(time.time())}.json"
+    out.write_text(
+        json.dumps({"source": args.table_check.name, "clips": [asdict(r) for r in rows]}, indent=2)
+    )
+    print(f"details: {out.relative_to(ROOT)}")
+
+
 if __name__ == "__main__":
     arguments = parser.parse_args()
     if arguments.replay is not None:
         asyncio.run(replay(arguments))
+    elif not TIMELINE_VIDEO.exists():
+        sys.exit("no video yet: run `eval_alerts.py prepare` first")
+    elif arguments.table_check is not None:
+        table_check(arguments)
     elif not TIMELINE_VIDEO.exists():
         sys.exit("no video yet: run `eval_alerts.py prepare` first")
     else:
