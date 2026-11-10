@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,3 +32,14 @@ async def store_telemetry(session: AsyncSession, device_id: str, telemetry: Tele
         {"id": device_id, "payload": telemetry.model_dump_json()},
     )
     return True
+
+
+async def delete_older_than(session: AsyncSession, cutoff: datetime, limit: int) -> int:
+    result = await session.execute(
+        text(
+            "DELETE FROM telemetry WHERE id IN"
+            " (SELECT id FROM telemetry WHERE received_at < :cutoff LIMIT :limit)"
+        ),
+        {"cutoff": cutoff, "limit": limit},
+    )
+    return int(result.rowcount)  # type: ignore[attr-defined]

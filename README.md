@@ -134,6 +134,11 @@ Frigate on a private network or VPN, never the open internet.
 `make demo` copies `deploy/frigate/config.template.yml` to `deploy/frigate/config/config.yml`
 once. That copy is not in git: Frigate rewrites it whenever VigiSift pushes camera rules.
 
+Data is not kept forever. Once a day VigiSift deletes alerts nobody judged, LLM call records,
+telemetry and finished commands older than `RETENTION_DAYS` (90), and judged alerts with their
+verdicts after `REVIEWED_RETENTION_DAYS` (365), since those are the eval labels. Frigate drops
+the clips themselves sooner (7 days for alerts in the template).
+
 Running it for real, behind a TLS reverse proxy:
 
 | Setting | Why |

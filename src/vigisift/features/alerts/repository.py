@@ -293,3 +293,24 @@ async def upsert_site(
 ) -> None:
     """Register a site or update its name and addresses (the reconcile mark is kept)."""
     await db.execute(_UPSERT_SITE, {"id": site_id, "name": name, "ui": ui_url, "api": api_url})
+
+
+# Unreviewed alerts older than `cutoff`, and every alert older than `reviewed_cutoff`. Verdicts go
+# with their alert (ON DELETE CASCADE): the longer cutoff keeps them as eval labels for a while.
+_DELETE_EXPIRED = text(
+    "DELETE FROM camera_alerts WHERE (site_id, review_id) IN ("
+    " SELECT a.site_id, a.review_id FROM camera_alerts a"
+    " WHERE a.started_at < :reviewed_cutoff OR (a.started_at < :cutoff AND NOT EXISTS ("
+    "  SELECT 1 FROM alert_verdicts v WHERE v.site_id = a.site_id AND v.review_id = a.review_id))"
+    " LIMIT :limit)"
+)
+
+
+async def delete_expired(
+    session: AsyncSession, *, cutoff: datetime, reviewed_cutoff: datetime, limit: int
+) -> int:
+    """Delete up to `limit` expired alerts. Returns how many went."""
+    result = await session.execute(
+        _DELETE_EXPIRED, {"cutoff": cutoff, "reviewed_cutoff": reviewed_cutoff, "limit": limit}
+    )
+    return int(result.rowcount)  # type: ignore[attr-defined]

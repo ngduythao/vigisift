@@ -22,6 +22,7 @@ from vigisift.features.costs.routes import router as costs_router
 from vigisift.features.devices import jobs as device_jobs
 from vigisift.features.devices.handlers import on_ack, on_status
 from vigisift.features.devices.routes import router as devices_router
+from vigisift.features.retention import jobs as retention_jobs
 from vigisift.features.review.routes import router as review_router
 from vigisift.features.rules import jobs as rule_jobs
 from vigisift.features.rules.routes import router as rules_router
@@ -58,6 +59,7 @@ def background_jobs(runtime: Runtime) -> list[background.Job]:
         *alert_jobs.background_jobs(runtime),
         *rule_jobs.background_jobs(runtime),
         *device_jobs.background_jobs(runtime),
+        *retention_jobs.background_jobs(runtime),
     ]
 
 

@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS telemetry (
     received_at  TIMESTAMPTZ NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_telemetry_device ON telemetry (device_id, received_at DESC);
+-- For the retention job, which deletes by age across all devices.
+CREATE INDEX IF NOT EXISTS idx_telemetry_received ON telemetry (received_at);
 
 CREATE TABLE IF NOT EXISTS commands (
     id              TEXT PRIMARY KEY,

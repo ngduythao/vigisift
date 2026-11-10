@@ -21,9 +21,12 @@ class Job:
     interval_sec: float
     # True means "more is waiting": run again without sleeping.
     run: Callable[[], Awaitable[bool | None]]
+    # Wait this long before the first run, for jobs with no reason to run at startup.
+    first_run_after_sec: float = 0
 
 
 async def every(job: Job) -> None:
+    await asyncio.sleep(job.first_run_after_sec)
     while True:
         try:
             if await job.run():

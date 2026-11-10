@@ -50,3 +50,17 @@ async def test_stop_cancels_every_task() -> None:
     await background.stop(tasks)
 
     assert all(task.cancelled() for task in tasks)
+
+
+async def test_a_job_can_wait_before_its_first_run() -> None:
+    runs = 0
+
+    async def count() -> None:
+        nonlocal runs
+        runs += 1
+
+    [task] = background.start([Job("later", 3600, count, first_run_after_sec=3600)])
+    await asyncio.sleep(0.05)
+    await background.stop([task])
+
+    assert runs == 0

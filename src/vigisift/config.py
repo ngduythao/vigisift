@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # The vision model everything defaults to: Frigate's summaries, the rule re-check, the local
@@ -95,6 +95,20 @@ class Settings(BaseSettings):
     # No heartbeat within this deadline counts as offline, even if the Last Will
     # hasn't fired (device software hung while the socket stays open).
     presence_ttl_sec: float = Field(default=30, gt=0)
+
+    # How long data is kept (features/retention/job.py, runs once a day). Alerts describe
+    # people, so they aren't kept forever: Frigate already drops the clip after 7 days.
+    # Unreviewed alerts, LLM call records, telemetry and finished commands go after
+    # `retention_days` (the longest metrics and costs window is 90 days). Alerts an operator
+    # judged are eval labels: kept `reviewed_retention_days` (label export reaches back 365).
+    retention_days: int = Field(default=90, ge=1)
+    reviewed_retention_days: int = Field(default=365, ge=1)
+
+    @model_validator(mode="after")
+    def _reviewed_kept_at_least_as_long(self) -> "Settings":
+        if self.reviewed_retention_days < self.retention_days:
+            raise ValueError("REVIEWED_RETENTION_DAYS must be at least RETENTION_DAYS")
+        return self
 
 
 def load_settings() -> Settings:

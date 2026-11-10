@@ -1,5 +1,6 @@
 import json
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
@@ -160,3 +161,15 @@ def _command(row: Row[Any], duplicate: bool = False) -> Command:
         CommandStatus(row.status),
         duplicate,
     )
+
+
+async def delete_finished_before(session: AsyncSession, cutoff: datetime, limit: int) -> int:
+    """Delete finished commands older than `cutoff`. A PENDING one is left to the sweep."""
+    result = await session.execute(
+        text(
+            "DELETE FROM commands WHERE id IN (SELECT id FROM commands"
+            " WHERE status <> 'PENDING' AND created_at < :cutoff LIMIT :limit)"
+        ),
+        {"cutoff": cutoff, "limit": limit},
+    )
+    return int(result.rowcount)  # type: ignore[attr-defined]

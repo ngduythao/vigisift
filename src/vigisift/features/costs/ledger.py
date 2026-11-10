@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import text
@@ -25,3 +26,14 @@ async def record_call(session: AsyncSession, purpose: str, usage: LlmUsage) -> D
         },
     )
     return cost
+
+
+async def delete_older_than(session: AsyncSession, cutoff: datetime, limit: int) -> int:
+    result = await session.execute(
+        text(
+            "DELETE FROM llm_calls WHERE id IN"
+            " (SELECT id FROM llm_calls WHERE created_at < :cutoff LIMIT :limit)"
+        ),
+        {"cutoff": cutoff, "limit": limit},
+    )
+    return int(result.rowcount)  # type: ignore[attr-defined]
