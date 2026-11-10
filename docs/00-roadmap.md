@@ -244,6 +244,7 @@ labelled clips from reviews.
 | D+++ fix | Frigate gets the host's time zone (`TZ` in compose, filled in by `make`) | A real demo summary before and after | Frigate writes the alert's local time into the prompt; on UTC a 9:30 AM alert in UTC+7 reached the model as 2:30 AM, and the prompt is warier at night |
 | Demo | A static live demo at vigisift-demo.vercel.app: the real console page with its API answered in the browser (`demo/demo.js`) from 8 recorded alerts and their clips | `scripts/demo_site.py capture` against a clean stack, headless Chrome on the local build and the deployed site | Recorded through real Frigate with `qwen3-vl:8b-instruct`: 2 of 4 staged thefts flagged, 0 of 2 normal clips. The missed thefts stay in, so the demo shows the AI as it is |
 | Demo trim | The demo keeps 4 of its 8 recorded alerts: 2 normal staged clips and 2 store-aisle clips, with `demo_site.py drop` to remove the rest before `build` | Headless Chrome on the deployed site | Theft-detection numbers stay in the eval |
+| C11 | Tracked backpacks and handbags so the model is told a bag is in the scene (docs/03-eval.md run 15). Needed lower thresholds: the CPU detector scores a carried bag under Frigate's default 0.7 | 2 evals through Frigate (test3 and test4) on a clean stack | 16/30 caught against 13/30, 2/30 false alarms against 1/30: within the noise. Every catch at Frigate's level had a bag, and the actors bring bags to steal, so in a real store it would flag customers with bags. Not adopted |
 
 ### Foundation stage log
 

@@ -565,3 +565,51 @@ run 13, whatever the number of cameras.
 Neither free change improved accuracy on this data, and rule wording has stopped being a useful lever.
 This set can't show whether real stores behave like these staged clips, so the next useful measurement
 is video from a real scene, recorded with consent. It should come before buying a stronger machine.
+
+## Run 15: tracking bags, 2026-11-10
+
+Frigate tracked `backpack` and `handbag` as well as `person`. Alerts still came only from people. A bag
+that moves during an alert is added to the prompt's "Objects in Scene", so the model is told a bag is
+there. Everything else was as in run 14 (stutter fixed, rules v2), on a clean stack.
+
+The CPU detector scores a carried bag at most about 0.65, under Frigate's default threshold of 0.7. The
+first attempt therefore tracked no bags at all. The run used `min_score: 0.4` and `threshold: 0.5` for
+both labels.
+
+| | Run 14: stutter fixed, v2 | Run 15: with bags |
+|---|---|---|
+| Caught (effective level), test3 | 8/20 | 8/20 |
+| Caught (effective level), test4 | 5/10 | 8/10 |
+| **Caught, combined** | **13/30** | **16/30** |
+| ... with Frigate's own level only | 12/30 | 13/30 |
+| False alarms | 1/30 | 2/30 |
+| Clips with a summary | 59/60 | 59/60 |
+| Summary delay (median, test3 / test4) | 99 / 99 seconds | 113 / 109 seconds |
+
+How often a bag reached the prompt, by clip:
+
+| Clips | A bag in the alert | Flagged by Frigate's level |
+|---|---|---|
+| Theft, with a bag | 17/30 | 13/17 |
+| Theft, no bag | 13/30 | 0/13 |
+| Normal, with a bag | 5/30 | 1/5 |
+| Normal, no bag | 25/30 | 0/25 |
+
+Reading the tables:
+
+- **The gain is within the noise.** Against run 14, 7 thefts were gained and 4 lost (exact sign test on
+  those 11 clips, p ≈ 0.55). Run 14 showed that swings of about 5 clips in 30 are normal on this set.
+- **Every theft caught at Frigate's level had a bag in the alert,** and the summaries mostly name it:
+  "packing a white package into a backpack", "unzips a backpack, places an item from a table into it".
+  The model treats bag handling itself as a sign.
+- **That is a feature of this dataset, not of stores.** The actors bring a bag to "steal", so a bag
+  appears in 17/30 theft clips but only 5/30 normal ones. Real customers often carry bags. The one
+  normal clip flagged because of a bag, Normal (69), "inspecting items from his bag", shows the false
+  alarms this would add in a real store.
+- **The prompt grows and summaries come about 10 seconds later.**
+
+### Conclusion
+
+Bag tracking stays off. The gain is not separable from chance, and its mechanism, flagging anyone who
+handles a bag, would add false alarms where customers carry bags. Measure it again only on real video,
+recorded with consent.
