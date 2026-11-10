@@ -3,6 +3,11 @@ from typing import Literal
 from pydantic import BaseModel, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# The vision model everything defaults to: Frigate's summaries, the rule re-check, the local
+# assistant and the offline eval. One copy loaded in Ollama serves them all. The Frigate
+# template (deploy/frigate/config.template.yml) and .env.example name it too: change all three.
+DEFAULT_VLM_MODEL = "qwen3-vl:8b-instruct"
+
 
 class FrigateCredential(BaseModel):
     """The Frigate account VigiSift uses to read reviews and push camera rules.
@@ -42,13 +47,13 @@ class Settings(BaseSettings):
     # for summaries, so Ollama keeps only one model loaded. The `qwen3-vl:8b` tag is the Thinking
     # build: slow, and another 6 GB to download.
     ollama_host: str = "http://127.0.0.1:11434"
-    ollama_model: str = "qwen3-vl:8b-instruct"
+    ollama_model: str = DEFAULT_VLM_MODEL
 
     # Re-check alerts against the camera rules (features/rules/check.py), through Ollama
     # at `ollama_host`. Uses EXACTLY the model and num_ctx Frigate summarises with: the
     # same copy already loaded in Ollama, with no second model loaded.
     rule_check_enabled: bool = True
-    rule_check_model: str = "qwen3-vl:8b-instruct"
+    rule_check_model: str = DEFAULT_VLM_MODEL
     rule_check_num_ctx: int = Field(default=16384, ge=2048)
     # Like Frigate's `keep_alive`: how long Ollama holds the model while unused.
     rule_check_keep_alive: str = Field(default="10m", pattern=r"^(-1|\d+[smh])$")
@@ -63,6 +68,8 @@ class Settings(BaseSettings):
     # A site never reconciled before reads back this far.
     frigate_initial_lookback_sec: float = Field(default=24 * 3600, gt=0)
     frigate_timeout_sec: float = Field(default=10, gt=0)
+    # Push camera rules Frigate is missing or changed (features/rules/sync.py).
+    rule_sync_interval_sec: float = Field(default=300, ge=10)
     # JSON by site id, for example {"bakery-store": {"user": "vigisift", "password": "..."}}.
     # A site not listed here is called without sign-in (internal port 5000 only).
     frigate_credentials: dict[str, FrigateCredential] = Field(default_factory=dict)

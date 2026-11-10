@@ -11,6 +11,7 @@ from sqlalchemy import text
 from tests.fakes.ports import FakeFrigateApi, FakeMqttClient
 from vigisift.app import create_app
 from vigisift.config import Settings
+from vigisift.features.alerts.repository import upsert_site
 from vigisift.features.auth.passwords import hash_password
 from vigisift.infra.db.database import apply_schema, create_engine
 from vigisift.runtime import Runtime
@@ -109,13 +110,8 @@ async def app(
                 ),
                 {"username": username, "name": display_name, "hash": PASSWORD_HASH, "role": role},
             )
-        for site_id, name, ui_url, api_url in SITES:
-            await connection.execute(
-                text(
-                    "INSERT INTO sites (id, name, ui_url, api_url) VALUES (:id, :name, :ui, :api)"
-                ),
-                {"id": site_id, "name": name, "ui": ui_url, "api": api_url},
-            )
+        for site in SITES:
+            await upsert_site(connection, *site)
         for device_id, name, room, kind, state in SEED:
             await connection.execute(
                 text(

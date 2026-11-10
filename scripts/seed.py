@@ -14,8 +14,16 @@ from datetime import UTC, datetime
 from sqlalchemy import text
 
 from vigisift.config import load_settings
+from vigisift.domain.operator import Role
+from vigisift.features.alerts.repository import upsert_site
+from vigisift.features.auth import repository as operators
 from vigisift.features.auth.passwords import hash_password
-from vigisift.infra.db.database import apply_schema, create_engine
+from vigisift.infra.db.database import (
+    apply_schema,
+    create_engine,
+    create_session_factory,
+    session_scope,
+)
 
 # The Frigate site in compose.yml: operators open the UI through port 8971 on the host,
 # and the API calls internal port 5000 on the compose network (reachable only when VigiSift
@@ -32,18 +40,11 @@ DEVICES = [
 async def main() -> None:
     engine = create_engine(load_settings())
     await apply_schema(engine)
-    async with engine.begin() as connection:
-        for site_id, site_name, ui_url, api_url in SITES:
-            await connection.execute(
-                text(
-                    "INSERT INTO sites (id, name, ui_url, api_url) VALUES (:id, :name, :ui, :api)"
-                    " ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name,"
-                    " ui_url = EXCLUDED.ui_url, api_url = EXCLUDED.api_url"
-                ),
-                {"id": site_id, "name": site_name, "ui": ui_url, "api": api_url},
-            )
+    async with session_scope(create_session_factory(engine)) as db:
+        for site in SITES:
+            await upsert_site(db, *site)
         for device_id, name, room, kind, state in DEVICES:
-            await connection.execute(
+            await db.execute(
                 text(
                     "INSERT INTO devices (id, name, room, kind, state, updated_at)"
                     " VALUES (:id, :name, :room, :kind, :state, :now)"
@@ -59,16 +60,10 @@ async def main() -> None:
                     "now": datetime.now(UTC),
                 },
             )
-        has_operator = (await connection.execute(text("SELECT 1 FROM operators LIMIT 1"))).first()
+        has_operator = (await db.execute(text("SELECT 1 FROM operators LIMIT 1"))).first()
         password = None if has_operator else secrets.token_urlsafe(12)
         if password is not None:
-            await connection.execute(
-                text(
-                    "INSERT INTO operators (username, display_name, password_hash, role)"
-                    " VALUES ('admin', 'Admin', :hash, 'admin')"
-                ),
-                {"hash": hash_password(password)},
-            )
+            await operators.upsert(db, "admin", "Admin", hash_password(password), Role.ADMIN)
     await engine.dispose()
     print(f"loaded {len(DEVICES)} devices and {len(SITES)} sites")
     if password is not None:

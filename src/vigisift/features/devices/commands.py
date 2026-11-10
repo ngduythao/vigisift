@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vigisift.domain.device import CommandStatus, DeviceState, validate_transition
+from vigisift.domain.events import EventType
 from vigisift.features.devices import repository
 from vigisift.features.topics import command_topic
 from vigisift.ports.messaging import MqttClient
@@ -32,7 +33,7 @@ class Command:
 
     def event(self) -> dict[str, object]:
         return {
-            "type": "command",
+            "type": EventType.COMMAND,
             "command_id": self.command_id,
             "device_id": self.device_id,
             "status": self.status,

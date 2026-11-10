@@ -81,6 +81,8 @@ genai:
   local:
     provider: ollama
     base_url: http://host.docker.internal:11434
+    # VigiSift's rule re-check uses the same model (DEFAULT_VLM_MODEL in src/vigisift/config.py,
+    # RULE_CHECK_MODEL in .env): change both together.
     model: qwen3-vl:8b-instruct
     roles:
       - descriptions

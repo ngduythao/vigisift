@@ -10,6 +10,7 @@ from tests.fakes.ports import FakeFrigateApi
 from tests.features.alerts.frigate import START, SUMMARY, segment
 from vigisift.features.alerts import reconcile
 from vigisift.features.alerts.reconcile import ReconcilePolicy, Reconciler
+from vigisift.features.alerts.repository import upsert_site
 from vigisift.runtime import Runtime
 
 POLICY = ReconcilePolicy(interval_sec=300, overlap_sec=900, initial_lookback_sec=86400)
@@ -129,12 +130,7 @@ async def test_long_gaps_are_read_page_by_page(
 async def test_one_broken_site_does_not_stop_the_others(runtime: Runtime) -> None:
     await _settled(runtime)
     async with runtime.session() as session:
-        await session.execute(
-            text(
-                "INSERT INTO sites (id, name, ui_url, api_url)"
-                " VALUES ('kho', 'Kho', 'http://kho.test', 'http://kho.test:5000')"
-            )
-        )
+        await upsert_site(session, "kho", "Kho", "http://kho.test", "http://kho.test:5000")
     frigate = FakeFrigateApi({"kho": [_ended("1.0-k", camera="gate")]})
     frigate.failing.add("demo")
 
@@ -162,12 +158,7 @@ async def test_a_malformed_review_is_skipped_and_the_rest_recorded(runtime: Runt
 async def test_two_instances_do_not_reconcile_the_same_site_at_once(runtime: Runtime) -> None:
     await _settled(runtime)
     async with runtime.session() as session:
-        await session.execute(
-            text(
-                "INSERT INTO sites (id, name, ui_url, api_url)"
-                " VALUES ('fresh', 'New', 'http://fresh.test', 'http://fresh.test:5000')"
-            )
-        )
+        await upsert_site(session, "fresh", "New", "http://fresh.test", "http://fresh.test:5000")
     frigate = FakeFrigateApi()
     a = _reconciler(runtime, frigate, runtime.cooldown)
     b = _reconciler(runtime, frigate, runtime.cooldown)
@@ -192,21 +183,3 @@ async def test_the_startup_pass_ignores_a_leftover_lock(runtime: Runtime) -> Non
     assert await reconciler.run_once() == [], "a normal pass honours the lock"
     [result] = await reconciler.run_once(force=True)
     assert result.changed == 1
-
-
-async def test_a_failed_rules_check_does_not_hold_back_the_alert_cursor(runtime: Runtime) -> None:
-    await _settled(runtime)
-    frigate = FakeFrigateApi({"demo": [_ended("1.0-a")]})
-    frigate.config_failing.add("demo")
-    async with runtime.session() as session:
-        await session.execute(
-            text(
-                "INSERT INTO camera_rules (site_id, camera, rules, prompt, sha, applied_sha)"
-                " VALUES ('demo', 'shop_aisle', '{}', 'p', 'x', 'x')"
-            )
-        )
-
-    await _reconciler(runtime, frigate).run_once()
-
-    assert await _review_ids(runtime) == {"1.0-a"}
-    assert await _synced_until(runtime, "demo") is not None

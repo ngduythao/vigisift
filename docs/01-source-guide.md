@@ -29,14 +29,14 @@ Dependencies only point inward: `domain` ← `ports` ← `features`, while `infr
 | 5 | `features/telemetry/hub.py` | Realtime push, and why each connection has its own queue |
 | 6 | `features/devices/commands.py` | The way down: commands + idempotency + state machine + ack |
 | 7 | `features/alerts/payload.py` | Results from another system (and from a VLM) are untrusted data |
-| 8 | `features/alerts/repository.py` | **Merging independent of order**: out-of-order, duplicate messages still give one result. The only module that reads or writes `camera_alerts` |
+| 8 | `features/alerts/repository.py`, `service.py` | **Merging independent of order**: out-of-order, duplicate messages still give one result. The only module that reads or writes `camera_alerts`; every write goes through `alert_writer`, which publishes the change after commit |
 | 9 | `features/alerts/reconcile.py`, `infra/frigate/client.py` | When MQTT misses, ask the API again to recover |
 | 10 | `deploy/mosquitto/acl` | One identity per site, unable to impersonate another |
 | 11 | `features/auth/service.py`, `guard.py` | Sign-in: stopping password guessing properly, revocable sessions |
 | 12 | `features/review/repository.py` | Operator verdicts, AI against people, label export |
-| 13 | `domain/rules.py`, `features/rules/apply.py` | Per-camera rules, pushing to Frigate, detecting drift |
+| 13 | `domain/rules.py`, `features/rules/apply.py`, `sync.py` | Per-camera rules, pushing to Frigate, detecting drift |
 | 14 | `domain/evaluation.py`, `scripts/eval_alerts.py` | Measuring the whole system on labelled video |
-| 15 | `bootstrap.py`, `app.py` | Wiring real adapters to ports; `infra/mqtt/client.py` has MQTT's thread trap |
+| 15 | `bootstrap.py`, `app.py`, `background.py` | Wiring real adapters to ports; each feature's `jobs.py` lists its periodic jobs; `infra/mqtt/client.py` has MQTT's thread trap |
 
 ---
 
@@ -186,8 +186,9 @@ Two more details worth noting:
 When an admin edits rules (a bakery warehouse differs from a watch store), VigiSift saves first, pushes to
 Frigate after, and **doesn't trust that a push finishes the job**:
 
-- Frigate off at save time: the rules wait (`applied_sha` differs from `sha`), and reconcile pushes again.
-- Someone restores an old Frigate `config.yml`: each reconcile pass re-reads the RUNNING config,
+- Frigate off at save time: the rules wait (`applied_sha` differs from `sha`), and the rule sync
+  (`features/rules/sync.py`, every 5 minutes, apart from alert reconcile) pushes again.
+- Someone restores an old Frigate `config.yml`: each sync pass re-reads the RUNNING config,
   and on drift pushes again. Really run: restored the file, restarted Frigate,
   VigiSift logged "drifted from Frigate, pushing again" and Frigate returned to the right rules.
 - An admin edits again while the old version is being pushed: mark "applied" only if `sha` is

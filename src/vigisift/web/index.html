@@ -511,8 +511,8 @@ function chooseSite(id, reload = true) {
   renderSites();
   if (!reload) return;
   closeHistoryAlert();
-  loadQueue().catch(() => {});
-  loadHistory().catch(() => {});
+  later("queue", loadQueue, 0);
+  later("history", loadHistory, 0);
 }
 
 const siteParam = () => (currentSite === null ? "" : `&site_id=${encodeURIComponent(currentSite)}`);
@@ -923,12 +923,21 @@ function log(line) {
   while ($("events").children.length > 100) $("events").lastChild.remove();
 }
 
-// Turn a burst of events into one reload. A network error doesn't become an
-// unhandled promise rejection.
+// Turn a burst of events into one reload. A failed reload is reported once in the
+// event log and retried every 10 seconds until it works (or the operator signs out).
 const pending = {};
-function later(name, fn) {
+const failing = {};
+function later(name, fn, delayMs = 1000) {
   clearTimeout(pending[name]);
-  pending[name] = setTimeout(() => fn().catch(() => {}), 1000);
+  pending[name] = setTimeout(() => fn().then(
+    () => { failing[name] = false; },
+    (error) => {
+      console.error(`refreshing ${name} failed`, error);
+      if (!failing[name]) log(`Couldn't refresh ${name}, retrying`);
+      failing[name] = true;
+      if (!$("app").hidden) later(name, fn, 10000);
+    },
+  ), delayMs);
 }
 
 function setLive(on) {
@@ -941,7 +950,7 @@ function setLive(on) {
 let socket;
 let retryMs = 1000;
 function connectEvents() {
-  socket = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/telemetry`);
+  socket = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/events`);
   socket.onopen = () => { retryMs = 1000; setLive(true); };
   socket.onmessage = (message) => {
     const event = JSON.parse(message.data);
@@ -954,7 +963,7 @@ function connectEvents() {
       later("history", loadHistory); later("metrics", loadMetrics);
     } else if (event.type === "presence") { log(`${event.device_id} is ${event.state}`); later("devices", loadDevices); }
     else if (event.type === "command") { log(`command ${event.command_id.slice(0, 8)} ${event.status}`); later("devices", loadDevices); }
-    else { later("devices", loadDevices); }
+    else if (event.type === "telemetry") { later("devices", loadDevices); }
   };
   // Reconnect on a lost connection, backing off to 30 seconds so a failing
   // server isn't flooded. If the session expired, the next API call returns to sign-in.

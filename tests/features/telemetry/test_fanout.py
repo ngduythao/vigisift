@@ -29,4 +29,4 @@ async def test_telemetry_handled_by_instance_b_reaches_a_browser_on_instance_a(
             mqtt_b.deliver("device/fan-1/telemetry", json.dumps({"state": "ON"}))
             message = await asyncio.wait_for(browser_on_a.get(), timeout=3)
 
-    assert json.loads(message) == {"device_id": "fan-1", "state": "ON"}
+    assert json.loads(message) == {"type": "telemetry", "device_id": "fan-1", "state": "ON"}

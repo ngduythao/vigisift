@@ -4,6 +4,7 @@ from typing import Any
 
 import httpx
 
+from vigisift.config import DEFAULT_VLM_MODEL
 from vigisift.domain.usage import LlmUsage
 from vigisift.ports.llm import ChatUnavailableError, Entry, ModelTurn, ToolCall
 
@@ -71,7 +72,7 @@ class OllamaChatModel:
 
     def __init__(
         self,
-        model: str = "qwen3-vl:8b-instruct",
+        model: str = DEFAULT_VLM_MODEL,
         host: str = "http://127.0.0.1:11434",
         think: bool = False,
         timeout_sec: float = 120,
