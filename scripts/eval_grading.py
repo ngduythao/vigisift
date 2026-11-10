@@ -12,6 +12,10 @@ the `test` set, after the fix is settled.
     uv run python scripts/eval_alerts.py prepare --zip samples/eval/Dataset.zip --split dev
     uv run python scripts/eval_grading.py --rules evals/shoplifting/rules.json
 
+`--replay grading-<ts>.json` skips the images: it re-runs only VigiSift's re-check on the
+descriptions a previous run saved, in a few minutes. Use it for changes to the re-check alone
+(src/vigisift/domain/rules.py: the choices and the prompt), measured on the same descriptions.
+
 `--frames` changes the frame count (Frigate adjusts it through `num_ctx`, at most 1 frame per
 review second). Temperature defaults to 0 like the Frigate config: at 0.5 (Frigate's default) the
 model answers randomly; one config run twice on dev gave 7/20 and 4/20, so no comparing configs.
@@ -251,13 +255,70 @@ parser.add_argument("--rules", type=Path, default=RULES)
 parser.add_argument("--model", default=DEFAULT_VLM_MODEL, help="model Frigate describes with")
 parser.add_argument("--rule-model", default=DEFAULT_VLM_MODEL, help="model VigiSift re-checks with")
 parser.add_argument("--ollama", default="http://127.0.0.1:11434")
+parser.add_argument(
+    "--replay", type=Path, help="re-check the descriptions saved in this grading-*.json, no images"
+)
 parser.add_argument("--frames", type=int, default=FRAMES)
 parser.add_argument("--temperature", type=float, default=OPTIONS["temperature"])
 parser.add_argument(
     "--language", default="", help="like Frigate's preferred_language; unset by default"
 )
 
+
+async def replay(args: argparse.Namespace) -> None:
+    """Re-run only the re-check on saved descriptions: same model answers, new question."""
+    saved = json.loads(args.replay.read_text())
+    rules = validated(from_dict(json.loads(args.rules.read_text())))
+    picker = OllamaIndicatorPicker(args.rule_model, args.ollama, num_ctx=NUM_CTX)
+    rows = []
+    for clip in saved["clips"]:
+        answer = clip.get("answer") or {}
+        description = review_report(
+            answer.get("title"),
+            answer.get("shortSummary"),
+            answer.get("scene"),
+            tuple(answer.get("observations") or ()),
+        )
+        choice = await picker.pick(check_prompt(rules, description), indicator_choices(rules))
+        match = match_level(rules, choice)
+        rows.append(
+            {
+                "file": clip["file"],
+                "suspicious": clip["suspicious"],
+                "level": clip["level"],
+                "rule_level": match.level,
+                "rule_match": match.indicator,
+                "answer": answer,
+            }
+        )
+    await picker.aclose()
+
+    def flagged(rows: list[dict[str, Any]]) -> int:
+        return sum(max(row["level"] or 0, row["rule_level"]) >= 1 for row in rows)
+
+    thefts = [row for row in rows if row["suspicious"]]
+    normal = [row for row in rows if not row["suspicious"]]
+    print(f"replay of {args.replay.name}, rules {args.rules.name}, re-check {args.rule_model}")
+    print(
+        f"flagged (effective level): {flagged(thefts)}/{len(thefts)} thefts,"
+        f" {flagged(normal)}/{len(normal)} normal"
+    )
+    out = ROOT / "evals" / "results" / f"replay-{int(time.time())}.json"
+    out.write_text(
+        json.dumps(
+            {"source": args.replay.name, "rules": args.rules.name, "clips": rows},
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    print(f"details: {out.relative_to(ROOT)}")
+
+
 if __name__ == "__main__":
-    if not TIMELINE_VIDEO.exists():
+    arguments = parser.parse_args()
+    if arguments.replay is not None:
+        asyncio.run(replay(arguments))
+    elif not TIMELINE_VIDEO.exists():
         sys.exit("no video yet: run `eval_alerts.py prepare` first")
-    asyncio.run(main(parser.parse_args()))
+    else:
+        asyncio.run(main(arguments))
