@@ -1,4 +1,4 @@
-# VigiSift
+# <img src="docs/images/logo.svg" alt="" width="32" height="32"> VigiSift
 
 **AI sifts the alerts, people decide.** A self-hosted console for CCTV operators who watch many
 sites, built on [Frigate](https://github.com/blakeblackshear/frigate).
