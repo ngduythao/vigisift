@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>VigiSift</title>
+<!-- The eye mark (also docs/images/logo.svg). Inline so the page needs no extra route and the demo build copies nothing new. -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cstyle%3Epath%7Bstroke:%23171717%7Dcircle%7Bfill:%23a15c00%7D@media (prefers-color-scheme:dark)%7Bpath%7Bstroke:%23f8f8f8%7Dcircle%7Bfill:%23e8b04a%7D%7D%3C/style%3E%3Cpath d='M2 12C5 6.5 8.5 4.5 12 4.5S19 6.5 22 12C19 17.5 15.5 19.5 12 19.5S5 17.5 2 12Z' fill='none' stroke-width='2.2' stroke-linejoin='round'/%3E%3Ccircle cx='12' cy='12' r='3.4'/%3E%3C/svg%3E">
 <style>
   @font-face { font-family: Inter; src: url("/fonts/inter-latin-wght-normal.woff2") format("woff2"); font-weight: 100 900; font-display: swap;
     unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
@@ -63,7 +65,8 @@
   #sidebar { display: flex; flex-direction: column; gap: 16px; min-height: 0; padding: 10px; overflow-y: auto; background: var(--bg-side); border-right: 1px solid var(--line); }
   .side-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 30px; padding-left: 8px; }
   .side-top h1 { font-size: 15px; font-weight: 600; }
-  #home { text-decoration: none; }
+  #home, #login h1 { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+  .mark { flex: none; width: 20px; height: 20px; }
   .ghost { background: none; color: var(--text-3); padding: 6px; display: inline-flex; }
   .ghost:hover:not(:disabled) { filter: none; background: var(--bg-selected); color: var(--text); }
   #tabs { display: grid; gap: 2px; }
@@ -210,8 +213,14 @@
 </style>
 </head>
 <body>
+<svg hidden>
+  <symbol id="eye" viewBox="0 0 24 24">
+    <path d="M2 12C5 6.5 8.5 4.5 12 4.5S19 6.5 22 12C19 17.5 15.5 19.5 12 19.5S5 17.5 2 12Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+    <circle cx="12" cy="12" r="3.2" style="fill: var(--suspicious)"/>
+  </symbol>
+</svg>
 <form id="login" hidden>
-  <h1>VigiSift</h1>
+  <h1><svg class="mark" aria-hidden="true"><use href="#eye"/></svg>VigiSift</h1>
   <h2 class="label">Operator sign-in</h2>
   <input name="username" placeholder="Username" autocomplete="username" required>
   <input name="password" type="password" placeholder="Password" autocomplete="current-password" required>
@@ -222,7 +231,7 @@
 <div id="app" hidden>
   <aside id="sidebar">
     <div class="side-top">
-      <h1><a id="home" href="#review" title="Back to Review">VigiSift</a></h1>
+      <h1><a id="home" href="#review" title="Back to Review"><svg class="mark" aria-hidden="true"><use href="#eye"/></svg>VigiSift</a></h1>
       <button id="collapse" class="ghost" aria-expanded="true" aria-label="Collapse sidebar" title="Collapse sidebar ([)">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
       </button>
