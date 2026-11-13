@@ -1,6 +1,6 @@
 FROM ghcr.io/astral-sh/uv:0.13.7 AS uv
 
-FROM python:3.14-slim AS build
+FROM python:3.15-slim AS build
 COPY --from=uv /uv /usr/local/bin/uv
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
@@ -11,7 +11,7 @@ COPY src ./src
 COPY scripts ./scripts
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev
 
-FROM python:3.14-slim
+FROM python:3.15-slim
 RUN useradd --system --uid 10001 app
 WORKDIR /app
 COPY --from=build --chown=app:app /app /app
