@@ -23,23 +23,35 @@ async def _state(settings: Settings, device_id: str) -> object:
     return await _scalar(settings, "SELECT state FROM devices WHERE id = :id", id=device_id)
 
 
+async def _state_becomes(
+    settings: Settings, device_id: str, expected: str, timeout: float = 5.0
+) -> object:
+    """The state once it reaches `expected`, or the last one seen after `timeout`.
+
+    A fixed sleep was flaky on slow CI runners: the handler had not written yet.
+    """
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout
+    while (state := await _state(settings, device_id)) != expected and loop.time() < deadline:
+        await asyncio.sleep(0.05)
+    return state
+
+
 async def test_last_will_marks_a_device_offline(
     client: AsyncClient, mqtt: FakeMqttClient, settings: Settings
 ) -> None:
     mqtt.deliver("device/lamp-1/status", "offline")
-    await asyncio.sleep(0.2)
 
-    assert await _state(settings, "lamp-1") == "OFFLINE"
+    assert await _state_becomes(settings, "lamp-1", "OFFLINE") == "OFFLINE"
 
 
 async def test_coming_online_only_leaves_offline(
     client: AsyncClient, mqtt: FakeMqttClient, settings: Settings
 ) -> None:
-    mqtt.deliver("device/plug-1/status", "online")
     mqtt.deliver("device/fan-1/status", "online")
-    await asyncio.sleep(0.2)
+    mqtt.deliver("device/plug-1/status", "online")
 
-    assert await _state(settings, "plug-1") == "ONLINE", "OFFLINE → ONLINE"
+    assert await _state_becomes(settings, "plug-1", "ONLINE") == "ONLINE", "OFFLINE → ONLINE"
     assert await _state(settings, "fan-1") == "OFF", "online must not overwrite OFF"
 
 
