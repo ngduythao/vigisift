@@ -1,14 +1,21 @@
 version: 2
+
+# One pull request a week for every ecosystem, so bumps don't conflict on uv.lock.
+multi-ecosystem-groups:
+  weekly:
+    schedule:
+      interval: weekly
+
 updates:
   - package-ecosystem: github-actions
     directory: /
-    schedule:
-      interval: weekly
+    patterns: ["*"]
+    multi-ecosystem-group: weekly
   - package-ecosystem: uv
     directory: /
-    schedule:
-      interval: weekly
+    patterns: ["*"]
+    multi-ecosystem-group: weekly
   - package-ecosystem: docker
     directory: /
-    schedule:
-      interval: weekly
+    patterns: ["*"]
+    multi-ecosystem-group: weekly
