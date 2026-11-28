@@ -44,4 +44,4 @@ class RedisEventBus:
         finally:
             with contextlib.suppress(Exception):
                 await pubsub.unsubscribe(self._channel)
-                await pubsub.aclose()  # type: ignore[no-untyped-call]
+                await pubsub.aclose()
